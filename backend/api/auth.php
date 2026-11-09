@@ -22,11 +22,12 @@ try {
     $password = trim($payload['password'] ?? '');
 
     if (empty($email) || empty($password)) {
-        jsonError('Email y contraseña requeridos', 400);
+        jsonError('Correo o RUT y contraseña requeridos', 400);
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = :email AND activo = 1 LIMIT 1");
-    $stmt->execute([':email' => $email]);
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE (email = :id1 OR rut = :id2 OR REPLACE(REPLACE(rut, '.', ''), '-', '') = :id3) AND activo = 1 LIMIT 1");
+    $cleanRut = str_replace(['.', '-'], '', $email);
+    $stmt->execute([':id1' => $email, ':id2' => $email, ':id3' => $cleanRut]);
     $u = $stmt->fetch();
 
     if (!$u) {

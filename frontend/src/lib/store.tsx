@@ -212,10 +212,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Fallback local si backend no responde
-      const cleanEmail = email.trim().toLowerCase()
+      const cleanInput = email.trim().toLowerCase()
+      const cleanRut = cleanInput.replace(/[\.\-]/g, '')
       const u = db.usuarios.find(
         (x) =>
-          x.email.toLowerCase() === cleanEmail &&
+          (x.email.toLowerCase() === cleanInput ||
+            (x.rut && x.rut.toLowerCase().replace(/[\.\-]/g, '') === cleanRut)) &&
           (x.password === password || password === 'pcg123' || (x.password && x.password.startsWith('$2y$') && password === 'pcg123')) &&
           x.activo,
       )

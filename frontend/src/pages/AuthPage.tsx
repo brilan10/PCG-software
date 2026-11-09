@@ -135,11 +135,11 @@ export default function AuthPage({ mode }: { mode: 'login' | 'registro' }) {
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-300">Correo electrónico</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-300">Correo electrónico o RUT</label>
             <input
               className={field}
-              type="email"
-              placeholder="ejemplo@correo.cl"
+              type="text"
+              placeholder="brilan@pcg.cl o RUT"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
