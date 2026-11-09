@@ -1,7 +1,7 @@
 ﻿<?php
 /**
- * PCG SPA - ConexiÃ³n de Base de Datos PDO MySQL
- * ConfiguraciÃ³n oficial y resiliente para WebHost Chile / cPanel y Local
+ * PCG SPA - Conexión de Base de Datos PDO MySQL
+ * Configuración oficial y resiliente para WebHost Chile / cPanel y Local
  */
 
 declare(strict_types=1);
@@ -101,7 +101,7 @@ class DB {
         http_response_code(500);
         echo json_encode([
             "ok" => false,
-            "error" => "Error de conexiÃ³n a la base de datos MySQL en WebHost Chile: " . $lastError
+            "error" => "Error de conexión a la base de datos MySQL en WebHost Chile: " . $lastError
         ], JSON_UNESCAPED_UNICODE);
         exit();
     }

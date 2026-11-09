@@ -3,78 +3,76 @@
                    (HOSTING WEBHOST CHILE / cPANEL / APACHE)
 ================================================================================
 
-Este paquete contiene la aplicaciÃ³n completa lista para producciÃ³n en WebHost Chile.
+Este paquete deployd contiene la aplicación completa lista para producción en WebHost Chile.
 Incluye:
   - Frontend SPA (React + TypeScript + Vite compilado y minificado).
   - Backend API REST en PHP (sin dependencias externas, 100% nativo).
-  - Base de Datos MySQL (22 tablas, soporte UTF8MB4 y contraseÃ±as hasheadas con bcrypt).
+  - Base de Datos MySQL (22 tablas, soporte UTF8MB4 y contraseñas hasheadas con bcrypt).
   - Enrutamiento Apache (.htaccess) para URLs amigables de React Router y API.
 
 ================================================================================
 1. ESTRUCTURA EN EL SERVIDOR (/public_html/)
 ================================================================================
-Al subir y descomprimir en la raÃ­z de tu hosting (generalmente /public_html/),
-la estructura debe quedar asÃ­:
+Al subir y descomprimir en la raíz de tu hosting (generalmente /public_html/),
+la estructura debe quedar así:
 
   /public_html/
-  â”‚
-  â”œâ”€â”€ index.html                       <- Single Page App (Frontend React)
-  â”œâ”€â”€ .htaccess                        <- Reglas Apache de rutas SPA y API
-  â”œâ”€â”€ database_pcg_software.sql        <- Dump completo de la base de datos MySQL
-  â”œâ”€â”€ INSTRUCCIONES_DEPLOY_WEBHOST.txt <- Este manual de instalaciÃ³n
-  â”œâ”€â”€ CREDENCIALES_PRODUCCION.txt      <- Cuentas y accesos predeterminados
-  â”‚
-  â”œâ”€â”€ assets/                          <- JS, CSS y tipografÃ­as minificadas
-  â”‚     â”œâ”€â”€ index-XXXXX.js
-  â”‚     â””â”€â”€ index-XXXXX.css
-  â”‚
-  â””â”€â”€ backend/                         <- Servicios y API en PHP
-        â”œâ”€â”€ api/
-        â”‚     â”œâ”€â”€ db.php               <- Endpoint principal de sincronizaciÃ³n
-        â”‚     â”œâ”€â”€ auth.php             <- AutenticaciÃ³n con verificaciÃ³n bcrypt
-        â”‚     â””â”€â”€ health.php           <- DiagnÃ³stico de conexiÃ³n y tablas
-        â”œâ”€â”€ config/
-        â”‚     â”œâ”€â”€ db.php               <- CONEXIÃ“N A BASE DE DATOS (EDITAR AQUÃ)
-        â”‚     â””â”€â”€ cors.php             <- Cabeceras CORS y JSON
-        â””â”€â”€ database/
-              â”œâ”€â”€ schema.sql           <- Estructura DDL de las 22 tablas
-              â””â”€â”€ database_pcg_software.sql
+  │
+  ├── index.html                       <- Single Page App (Frontend React)
+  ├── .htaccess                        <- Reglas Apache de rutas SPA y API
+  ├── database_pcg_software.sql        <- Dump completo de la base de datos MySQL
+  ├── INSTRUCCIONES_DEPLOY_WEBHOST.txt <- Este manual de instalación
+  ├── CREDENCIALES_PRODUCCION.txt      <- Cuentas y accesos predeterminados
+  │
+  ├── assets/                          <- JS, CSS y tipografías minificadas
+  │     ├── index-XXXXX.js
+  │     └── index-XXXXX.css
+  │
+  └── backend/                         <- Servicios y API en PHP
+        ├── api/
+        │     ├── db.php               <- Endpoint principal de sincronización
+        │     ├── auth.php             <- Autenticación con verificación bcrypt
+        │     └── health.php           <- Diagnóstico de conexión y tablas
+        ├── config/
+        │     ├── db.php               <- CONEXIÓN A BASE DE DATOS (pcginfor_admin)
+        │     └── cors.php             <- Cabeceras CORS y JSON
+        └── database/
+              ├── schema.sql           <- Estructura DDL de las 22 tablas
+              └── database_pcg_software.sql
 
 ================================================================================
 2. PASO A PASO PARA SUBIR A WEBHOST CHILE (cPanel)
 ================================================================================
 
-PASO 1: SUBIR EL ARCHIVO deploy.zip
+PASO 1: SUBIR EL ARCHIVO deploy.zip (O CONTENIDO DE deployd/)
 1. Ingresa a tu cPanel de WebHost Chile.
 2. Abre el "Administrador de Archivos" (File Manager).
 3. Entra a la carpeta "public_html".
-4. Haz clic en "Cargar" (Upload) y sube el archivo "deploy.zip".
+4. Haz clic en "Cargar" (Upload) y sube el archivo "deploy.zip" (o el contenido de deployd/).
 5. Selecciona "deploy.zip" en public_html y presiona "Extraer" (Extract).
 
 PASO 2: CREAR LA BASE DE DATOS EN cPANEL
-1. En cPanel, dirÃ­gete a "Bases de datos MySQL" (o Asistente de bases de datos).
-2. Crea una base de datos nueva (ej: 'tuusuario_pcg').
-3. Crea un usuario MySQL nuevo y asÃ­gnale una clave segura (ej: 'tuusuario_admin' / 'TuClaveSegura123!').
-4. En "AÃ±adir usuario a la base de datos", selecciona el usuario y la base creados.
-5. Marca la casilla "TODOS LOS PRIVILEGIOS" (ALL PRIVILEGES) y guarda los cambios.
+1. En cPanel, dirígete a "Bases de datos MySQL".
+2. Crea una base de datos nueva (ej: 'pcginfor_software' o 'pcginfor_pcg').
+3. Asegúrate de que el usuario 'pcginfor_admin' tenga asignados TODOS LOS PRIVILEGIOS.
 
 PASO 3: IMPORTAR database_pcg_software.sql
 1. En cPanel, abre la herramienta "phpMyAdmin".
-2. En la columna izquierda, haz clic en la base de datos creada en el Paso 2.
-3. Haz clic en la pestaÃ±a superior "Importar".
+2. En la columna izquierda, haz clic en la base de datos creada.
+3. Haz clic en la pestaña superior "Importar".
 4. Selecciona el archivo 'database_pcg_software.sql' y presiona "Continuar" / "Importar".
-   (Se crearÃ¡n las 22 tablas con los 202 registros iniciales y claves bcrypt).
+   (Se crearán las 22 tablas con los 202 registros iniciales y claves bcrypt).
 
 PASO 4: VERIFICAR CREDENCIALES EN backend/config/db.php
-Las credenciales de tu usuario de cPanel ya quedaron preconfiguradas automÃ¡ticamente:
+Las credenciales de tu usuario de cPanel ya quedaron preconfiguradas automáticamente:
   Usuario MySQL: pcginfor_admin
   Clave BD:      abc.1233.abc.123
-Si tu base de datos se llama 'pcginfor_software' o 'pcginfor_pcg', se conectarÃ¡ de inmediato sin tocar nada.
+Si tu base de datos se llama 'pcginfor_software' o 'pcginfor_pcg', se conectará de inmediato sin tocar nada.
 Si le diste otro nombre a la base de datos (ej: 'pcginfor_mibd'), solo abre public_html/backend/config/db.php y ajusta el campo 'db'.
 
 PASO 5: VERIFICAR Y PROBAR
 1. Abre en tu navegador: https://tudominio.cl/backend/api/health.php
    Debe responder con status "ONLINE" y el conteo de 22 tablas.
 2. Abre: https://tudominio.cl/
-   El software cargarÃ¡ de inmediato con la pÃ­ldora verde:
-   "MySQL Conectado Â· BD en vivo"
+   El software cargará de inmediato con la píldora verde:
+   "MySQL Conectado · BD en vivo"

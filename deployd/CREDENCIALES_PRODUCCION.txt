@@ -2,7 +2,7 @@
              CREDENCIALES WEBHOST CHILE (cPanel / Base de Datos MySQL)
 ================================================================================
 
-DATOS DE CONEXIÃ“N A BASE DE DATOS EN PRODUCCIÃ“N (cPanel):
+DATOS DE CONEXIÓN A BASE DE DATOS EN PRODUCCIÓN (cPanel):
   - Servidor / Host:      localhost (o 127.0.0.1)
   - Puerto MySQL:         3306
   - Usuario MySQL:        pcginfor_admin
@@ -13,33 +13,33 @@ DATOS DE CONEXIÃ“N A BASE DE DATOS EN PRODUCCIÃ“N (cPanel):
               USUARIOS Y ACCESOS DEL SISTEMA WEB (PCG SPA)
 ================================================================================
 
-Todas las contraseÃ±as en la base de datos estÃ¡n encriptadas con hashes seguros BCRYPT
+Todas las contraseñas en la base de datos están encriptadas con hashes seguros BCRYPT
 (password_hash con algoritmo PASSWORD_BCRYPT).
 
 USUARIOS STAFF DE PCG:
   - Administrador / CEO:
       Email: brilan@pcg.cl
       Clave inicial: pcg123
-      Rol: ADMIN (Acceso total a todos los mÃ³dulos)
+      Rol: ADMIN (Acceso total a todos los módulos)
 
   - Finanzas / Jefa Sucursal:
       Email: yovylin@pcg.cl
       Clave inicial: pcg123
       Rol: DOC_PROCESS (Facturas, Flujo de Caja, Informes y Contratos)
 
-  - Seguridad & TÃ©cnico:
+  - Seguridad & Técnico:
       Email: johan@pcg.cl
       Clave inicial: pcg123
       Rol: WORKER (Mantenimientos, Checklist de Hardware y Planner)
 
-  - DiseÃ±ador & Staff:
+  - Diseñador & Staff:
       Email: javier@pcg.cl
       Clave inicial: pcg123
-      Rol: WORKER (DiseÃ±o de Identidad, Logos, Tarjetas y Proyectos)
+      Rol: WORKER (Diseño de Identidad, Logos, Tarjetas y Proyectos)
 
 CLIENTES CORPORATIVOS Y PERSONAS:
   - Constructora Andes: carolina@constructoraandes.cl (pcg123)
-  - ClÃ­nica Sonrisa: andres@sonrisa.cl (pcg123)
-  - Colegio San AgustÃ­n: informatica@colegiosanagustin.cl (pcg123)
+  - Clínica Sonrisa: andres@sonrisa.cl (pcg123)
+  - Colegio San Agustín: informatica@colegiosanagustin.cl (pcg123)
   - Persona Natural: pedro@correo.cl (pcg123)
   - Persona Natural: matias.soto@gmail.com (pcg123)
