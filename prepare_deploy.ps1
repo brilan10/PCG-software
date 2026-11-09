@@ -1,4 +1,4 @@
-﻿# prepare_deploy.ps1 - Script de Construccion y Empaquetado para Despliegue en WebHost Chile / cPanel
+# prepare_deploy.ps1 - Script de Construccion y Empaquetado para Despliegue en WebHost Chile / cPanel
 $ErrorActionPreference = "Stop"
 $Workspace = $PSScriptRoot
 $DeploydDir = "$Workspace\deployd"

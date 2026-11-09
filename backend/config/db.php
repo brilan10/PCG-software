@@ -1,10 +1,18 @@
 <?php
 /**
  * PCG SPA - Conexión de Base de Datos PDO MySQL
- * Soporta conexión automática y resiliente para WebHost Chile / cPanel y Local XAMPP
+ * Configuración Oficial para WebHost Chile / cPanel y Local
  */
 
 declare(strict_types=1);
+
+// ============================================================================
+// 1. CONFIGURACIÓN OFICIAL WEBHOST CHILE (cPanel)
+// ============================================================================
+define('DB_PROD_HOST', 'localhost');
+define('DB_PROD_USER', 'pcginfor_admin');
+define('DB_PROD_PASS', 'abc.1233.abc.123');
+define('DB_PROD_NAME', 'pcginfor_software');
 
 class DB {
     private static ?PDO $pdo = null;
@@ -15,60 +23,43 @@ class DB {
         }
 
         $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_EMULATE_PREPARES   => false,
         ];
 
-        // 1. Variables de entorno si están configuradas en cPanel
-        $envHost = getenv('DB_HOST') ?: null;
-        $envDb   = getenv('DB_NAME') ?: null;
-        $envUser = getenv('DB_USER') ?: null;
-        $envPass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : null;
+        $dbNames = [
+            DB_PROD_NAME,
+            'pcginfor_pcg',
+            'pcginfor_software',
+            'pcginfor_pcgsoftware',
+            'pcginfor_pcg_software',
+            'pcginfor_basededatos',
+            'pcginfor_bd',
+            'pcg_software'
+        ];
 
         $configs = [];
 
-        if ($envHost && $envDb && $envUser) {
+        // Conexiones en Producción (Host: localhost y 127.0.0.1)
+        foreach (array_unique($dbNames) as $dbName) {
             $configs[] = [
-                'host' => $envHost,
-                'port' => (int)(getenv('DB_PORT') ?: 3306),
-                'db'   => $envDb,
-                'user' => $envUser,
-                'pass' => $envPass ?? '',
+                'host' => DB_PROD_HOST,
+                'port' => 3306,
+                'db'   => $dbName,
+                'user' => DB_PROD_USER,
+                'pass' => DB_PROD_PASS,
+            ];
+            $configs[] = [
+                'host' => '127.0.0.1',
+                'port' => 3306,
+                'db'   => $dbName,
+                'user' => DB_PROD_USER,
+                'pass' => DB_PROD_PASS,
             ];
         }
 
-        // 2. Perfiles configurables para Producción WebHost Chile (cPanel: pcginfor_admin)
-        $configs[] = [
-            'host' => 'localhost',
-            'port' => 3306,
-            'db'   => 'pcginfor_software',
-            'user' => 'pcginfor_admin',
-            'pass' => 'abc.1233.abc.123',
-        ];
-        $configs[] = [
-            'host' => 'localhost',
-            'port' => 3306,
-            'db'   => 'pcginfor_pcg',
-            'user' => 'pcginfor_admin',
-            'pass' => 'abc.1233.abc.123',
-        ];
-        $configs[] = [
-            'host' => '127.0.0.1',
-            'port' => 3306,
-            'db'   => 'pcginfor_software',
-            'user' => 'pcginfor_admin',
-            'pass' => 'abc.1233.abc.123',
-        ];
-        $configs[] = [
-            'host' => '127.0.0.1',
-            'port' => 3306,
-            'db'   => 'pcginfor_pcg',
-            'user' => 'pcginfor_admin',
-            'pass' => 'abc.1233.abc.123',
-        ];
-
-        // 3. Perfiles de Desarrollo Local (XAMPP)
+        // Fallback de Desarrollo Local (XAMPP root sin clave)
         $configs[] = [
             'host' => 'localhost',
             'port' => 3306,
@@ -101,4 +92,3 @@ class DB {
         throw new RuntimeException("Error al conectar con la base de datos MySQL en WebHost Chile / XAMPP: " . $lastError);
     }
 }
-
