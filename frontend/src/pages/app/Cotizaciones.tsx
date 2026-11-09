@@ -294,11 +294,10 @@ function NuevaCotModal({
                     key={p}
                     type="button"
                     onClick={() => setDctoPct(p)}
-                    className={`rounded-lg px-2 py-0.5 text-xs font-semibold transition ${
-                      dctoPct === p
+                    className={`rounded-lg px-2 py-0.5 text-xs font-semibold transition ${dctoPct === p
                         ? 'bg-amber-500 text-white shadow-2xs'
                         : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-amber-100'
-                    }`}
+                      }`}
                   >
                     {p === 0 ? 'Sin % extra' : `-${p}%`}
                   </button>
@@ -997,9 +996,8 @@ function EditarDescuentoModal({
                 key={p}
                 type="button"
                 onClick={() => setPct(p)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                  pct === p ? 'bg-pcg-green text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${pct === p ? 'bg-pcg-green text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
               >
                 {p}%
               </button>

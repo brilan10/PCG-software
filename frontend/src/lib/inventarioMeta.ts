@@ -36,6 +36,14 @@ export const CATEGORIA_INV_META: Record<
     rubroCaja: 'SOFTWARE',
     prefix: 'INV-LIC',
   },
+  LICENCIA: {
+    label: 'Licencias de Software & Suscripciones (Office, Windows, Antivirus, Adobe)',
+    short: 'Licencias Software',
+    icon: '💿',
+    tone: 'blue',
+    rubroCaja: 'SOFTWARE',
+    prefix: 'INV-LIC',
+  },
   REPUESTO: {
     label: 'Repuestos y Componentes Hardware (SSD, RAM, Fuentes, Pantallas)',
     short: 'Repuestos HW',
@@ -60,6 +68,23 @@ export const CATEGORIA_INV_META: Record<
     rubroCaja: 'EQUIPOS',
     prefix: 'INV-EQP',
   },
+}
+
+export function getCategoriaMeta(cat?: string) {
+  if (cat && CATEGORIA_INV_META[cat as CategoriaInventario]) {
+    return CATEGORIA_INV_META[cat as CategoriaInventario]
+  }
+  if (cat === 'LICENCIA') {
+    return CATEGORIA_INV_META['LICENCIA_SOFTWARE']
+  }
+  return {
+    label: cat || 'General',
+    short: cat || 'General',
+    icon: '📦',
+    tone: 'slate' as const,
+    rubroCaja: 'INSUMOS' as const,
+    prefix: 'INV-GEN',
+  }
 }
 
 export const TIPO_PROYECTO_WEB_META: Record<

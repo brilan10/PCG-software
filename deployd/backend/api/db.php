@@ -352,7 +352,7 @@ try {
             return [
                 'id' => (int)$r['id'],
                 'codigo' => $r['codigo'],
-                'categoria' => $r['categoria'],
+                'categoria' => $r['categoria'] === 'LICENCIA' ? 'LICENCIA_SOFTWARE' : $r['categoria'],
                 'nombre' => $r['nombre'],
                 'marcaModelo' => $r['marca_modelo'] ?? '',
                 'descripcion' => $r['descripcion'] ?? '',

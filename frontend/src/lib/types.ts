@@ -440,6 +440,7 @@ export interface BancoConexion {
 export type CategoriaInventario =
   | 'HERRAMIENTA'
   | 'LICENCIA_SOFTWARE'
+  | 'LICENCIA'
   | 'REPUESTO'
   | 'INSUMO'
   | 'EQUIPO_INTERNO'

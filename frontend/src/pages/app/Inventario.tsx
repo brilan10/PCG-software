@@ -23,7 +23,7 @@ import {
   Tilt3DCard,
 } from '@/components/aceternity'
 
-import { CATEGORIA_INV_META, ESTADO_PROYECTO_WEB_META, TIPO_PROYECTO_WEB_META } from '@/lib/inventarioMeta'
+import { CATEGORIA_INV_META, ESTADO_PROYECTO_WEB_META, TIPO_PROYECTO_WEB_META, getCategoriaMeta } from '@/lib/inventarioMeta'
 
 
 const ESTADO_HERRAMIENTA_LABEL: Record<
@@ -82,13 +82,13 @@ export default function InventarioPage() {
     const herramientas = items.filter((it) => it.categoria === 'HERRAMIENTA')
     const totalUnidadesHerramientas = herramientas.reduce((a, b) => a + b.stockActual, 0)
 
-    const licencias = items.filter((it) => it.categoria === 'LICENCIA_SOFTWARE')
+    const licencias = items.filter((it) => it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA')
     const cuposTotalesLic = licencias.reduce((a, b) => a + b.stockActual, 0)
     const cuposUsadosLic = licencias.reduce((a, b) => a + (b.enUso ?? 0), 0)
     const cuposLibresLic = Math.max(0, cuposTotalesLic - cuposUsadosLic)
 
     const stockBajoCount = items.filter((it) => {
-      if (it.categoria === 'LICENCIA_SOFTWARE') {
+      if (it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA') {
         const libres = Math.max(0, it.stockActual - (it.enUso ?? 0))
         return libres <= it.stockMinimo
       }
@@ -142,14 +142,15 @@ export default function InventarioPage() {
       if (filtroResponsable !== 'TODOS' && String(it.responsableId ?? '') !== filtroResponsable) return false
 
       if (filtroAlerta === 'STOCK_BAJO') {
-        const disponible =
-          it.categoria === 'LICENCIA_SOFTWARE'
-            ? Math.max(0, it.stockActual - (it.enUso ?? 0))
-            : it.stockActual
+        const esLic = it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA'
+        const disponible = esLic
+          ? Math.max(0, it.stockActual - (it.enUso ?? 0))
+          : it.stockActual
         if (disponible > it.stockMinimo) return false
       }
       if (filtroAlerta === 'LIC_POR_VENCER') {
-        if (it.categoria !== 'LICENCIA_SOFTWARE' || !it.fechaVencimientoLicencia) return false
+        const esLic = it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA'
+        if (!esLic || !it.fechaVencimientoLicencia) return false
         if (diffDays(it.fechaVencimientoLicencia, hoy) > 30) return false
       }
       if (filtroAlerta === 'EN_TERRENO') {
@@ -167,7 +168,7 @@ export default function InventarioPage() {
   }, [items, tabCat, filtroResponsable, filtroAlerta, q, hoy, db.usuarios])
 
   const licenciasVisibles = useMemo(
-    () => itemsFiltrados.filter((it) => it.categoria === 'LICENCIA_SOFTWARE'),
+    () => itemsFiltrados.filter((it) => it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA'),
     [itemsFiltrados],
   )
 
@@ -486,8 +487,16 @@ export default function InventarioPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {proyectosWebFiltrados.map((pw) => {
-                const tMeta = TIPO_PROYECTO_WEB_META[pw.tipo]
-                const eMeta = ESTADO_PROYECTO_WEB_META[pw.estado]
+                const tMeta = TIPO_PROYECTO_WEB_META[pw.tipo] ?? {
+                  label: pw.tipo,
+                  short: pw.tipo,
+                  icon: '🌐',
+                  tone: 'blue' as const,
+                }
+                const eMeta = ESTADO_PROYECTO_WEB_META[pw.estado] ?? {
+                  label: pw.estado,
+                  tone: 'blue' as const,
+                }
                 const resp = db.usuarios.find((u) => u.id === pw.responsableId)
                 const diasMant = pw.proximaMantencionWeb
                   ? diffDays(pw.proximaMantencionWeb, hoy)
@@ -755,7 +764,9 @@ export default function InventarioPage() {
                     {/* Vencimiento y tipo */}
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="text-slate-500">
-                        {lic.tipoLicencia ? TIPO_LICENCIA_LABEL[lic.tipoLicencia] : 'Licencia Software'}
+                        {lic.tipoLicencia && TIPO_LICENCIA_LABEL[lic.tipoLicencia]
+                          ? TIPO_LICENCIA_LABEL[lic.tipoLicencia]
+                          : (lic.tipoLicencia || 'Licencia Software')}
                       </span>
                       {lic.fechaVencimientoLicencia && (
                         <Badge tone={porVencer ? 'red' : 'green'}>
@@ -866,9 +877,9 @@ export default function InventarioPage() {
             ]}
           >
             {itemsFiltrados.map((it) => {
-              const meta = CATEGORIA_INV_META[it.categoria]
+              const meta = getCategoriaMeta(it.categoria)
               const resp = db.usuarios.find((u) => u.id === it.responsableId)
-              const esLicencia = it.categoria === 'LICENCIA_SOFTWARE'
+              const esLicencia = it.categoria === 'LICENCIA_SOFTWARE' || it.categoria === 'LICENCIA'
               const usados = it.enUso ?? 0
               const libres = Math.max(0, it.stockActual - usados)
               const alertaBajo = esLicencia
@@ -1016,7 +1027,7 @@ export default function InventarioPage() {
                           </div>
                         )}
                       </div>
-                    ) : it.estadoFisico ? (
+                    ) : it.estadoFisico && ESTADO_HERRAMIENTA_LABEL[it.estadoFisico] ? (
                       <Badge tone={ESTADO_HERRAMIENTA_LABEL[it.estadoFisico].tone}>
                         {ESTADO_HERRAMIENTA_LABEL[it.estadoFisico].label}
                       </Badge>
@@ -1129,7 +1140,7 @@ function ModalItemInventario({
   const [categoria, setCategoria] = useState<CategoriaInventario>(item?.categoria ?? categoriaInicial)
   const [codigo, setCodigo] = useState(
     item?.codigo ??
-      `${CATEGORIA_INV_META[item?.categoria ?? categoriaInicial].prefix}-${String((db.inventario?.length ?? 0) + 1).padStart(3, '0')}`,
+      `${getCategoriaMeta(item?.categoria ?? categoriaInicial).prefix}-${String((db.inventario?.length ?? 0) + 1).padStart(3, '0')}`,
   )
   const [nombre, setNombre] = useState(item?.nombre ?? '')
   const [marcaModelo, setMarcaModelo] = useState(item?.marcaModelo ?? '')
@@ -1173,7 +1184,7 @@ function ModalItemInventario({
   const handleChangeCategoria = (cat: CategoriaInventario) => {
     setCategoria(cat)
     if (!isEdit) {
-      setCodigo(`${CATEGORIA_INV_META[cat].prefix}-${String((db.inventario?.length ?? 0) + 1).padStart(3, '0')}`)
+      setCodigo(`${getCategoriaMeta(cat).prefix}-${String((db.inventario?.length ?? 0) + 1).padStart(3, '0')}`)
       if (cat === 'LICENCIA_SOFTWARE') {
         setUnidad('activaciones')
         setUbicacion('Bóveda Digital PCG (Nube)')
@@ -1268,7 +1279,7 @@ function ModalItemInventario({
             } else {
               d.inventario.unshift(payload)
               if (registrarEnFinanzas && totalCompra > 0) {
-                const meta = CATEGORIA_INV_META[categoria]
+                const meta = getCategoriaMeta(categoria)
                 d.movimientos.push({
                   id: nextId(d.movimientos),
                   fecha: fechaUltimaCompra,
@@ -1423,7 +1434,9 @@ function ModalItemInventario({
         <div>
           <div className="mb-1.5 text-xs font-bold text-slate-700">Categoría de Inventario</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {(Object.keys(CATEGORIA_INV_META) as CategoriaInventario[]).map((cat) => {
+            {(Object.keys(CATEGORIA_INV_META) as CategoriaInventario[])
+              .filter((cat) => cat !== 'LICENCIA')
+              .map((cat) => {
               const m = CATEGORIA_INV_META[cat]
               const active = categoria === cat
               return (
@@ -1750,7 +1763,7 @@ function ModalReponerStock({
             if (nroDocumento.trim()) target.nroFacturaCompra = nroDocumento.trim()
 
             if (registrarCaja && totalCompra > 0) {
-              const meta = CATEGORIA_INV_META[target.categoria]
+              const meta = getCategoriaMeta(target.categoria)
               d.movimientos.push({
                 id: nextId(d.movimientos),
                 fecha: today(),
@@ -1823,7 +1836,7 @@ function ModalReponerStock({
             className="h-4 w-4 rounded accent-emerald-600"
           />
           <span>
-            Descontar de Caja en Finanzas (-{fmtCLP(totalCompra)}) como {CATEGORIA_INV_META[item.categoria].short}
+            Descontar de Caja en Finanzas (-{fmtCLP(totalCompra)}) como {getCategoriaMeta(item.categoria).short}
           </span>
         </label>
 
