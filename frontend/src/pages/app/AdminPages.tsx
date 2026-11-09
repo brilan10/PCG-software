@@ -1343,38 +1343,128 @@ export function CatalogoPage() {
       />
 
       <Card title="Catálogo de servicios (alimenta las cotizaciones)">
-        <Table head={['Código', 'Servicio', 'Tarifa Normal', 'Tarifa Convenio', ...(isAdmin ? ['Costo Interno (solo CEO)'] : [])]}>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-slate-800">
+            <span>🏷️</span>
+            <span>Tarifas Diferenciadas por Segmento</span>
+          </div>
+          <p>
+            • <b className="text-emerald-700">Tarifa Clientes (Particular):</b> Precio para personas naturales y particulares.
+            <br />
+            • <b className="text-indigo-700">Tarifa Empresas (B2B / Nominal):</b> Tarifa corporativa estándar aplicada a empresas e instituciones.
+            <br />
+            • <b className="text-amber-700">Tarifa Convenio Empresa:</b> Tarifa preferencial pactada para empresas con contrato de mantención recurrente.
+          </p>
+        </div>
+
+        <Table
+          head={[
+            'Código',
+            'Servicio',
+            'Tarifa Clientes (Particular)',
+            'Tarifa Empresas (B2B / Nominal)',
+            'Tarifa Convenio Empresa',
+            ...(isAdmin ? ['Costo Interno (solo CEO)'] : []),
+          ]}
+        >
           {db.servicios.map((s) => (
-            <tr key={s.id}>
-              <td className={`${td} font-mono text-xs`}>{s.codigo}</td>
+            <tr key={s.id} className="hover:bg-slate-50/60 transition">
+              <td className={`${td} font-mono text-xs font-bold text-slate-700`}>{s.codigo}</td>
               <td className={td}>
-                <div className="font-medium text-slate-900">{s.nombre}</div>
-                <div className="text-xs text-slate-500">{s.descripcion}</div>
+                <div className="font-semibold text-slate-900">{s.nombre}</div>
+                <div className="text-xs text-slate-500 line-clamp-2">{s.descripcion}</div>
               </td>
+
+              {/* 1. Tarifa Clientes Solamente (Persona Natural) */}
               <td className={td}>
-                <input
-                  type="number"
-                  className={`${inputCls} !w-28`}
-                  value={s.normal}
-                  onChange={(e) => mutate((d) => { d.servicios.find((x) => x.id === s.id)!.normal = Number(e.target.value) })}
-                />
-              </td>
-              <td className={td}>
-                <input
-                  type="number"
-                  className={`${inputCls} !w-28`}
-                  value={s.convenio}
-                  onChange={(e) => mutate((d) => { d.servicios.find((x) => x.id === s.id)!.convenio = Number(e.target.value) })}
-                />
-              </td>
-              {isAdmin && (
-                <td className={td}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-emerald-700">$</span>
                   <input
                     type="number"
-                    className={`${inputCls} !w-28`}
-                    value={s.costo ?? 0}
-                    onChange={(e) => mutate((d) => { d.servicios.find((x) => x.id === s.id)!.costo = Number(e.target.value) || undefined })}
+                    min={0}
+                    step={1000}
+                    className={`${inputCls} !w-32 border-emerald-300 bg-emerald-50/40 font-bold text-emerald-900 focus:border-emerald-500`}
+                    value={s.tarifaCliente ?? s.normal}
+                    onChange={(e) =>
+                      mutate((d) => {
+                        const target = d.servicios.find((x) => x.id === s.id)
+                        if (target) {
+                          const val = Number(e.target.value)
+                          target.tarifaCliente = val
+                        }
+                      })
+                    }
                   />
+                </div>
+                <span className="mt-0.5 block text-[10px] font-semibold text-emerald-700">Particular</span>
+              </td>
+
+              {/* 2. Tarifa Empresas (B2B / Nominal) */}
+              <td className={td}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-indigo-700">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    className={`${inputCls} !w-32 border-indigo-300 bg-indigo-50/40 font-bold text-indigo-900 focus:border-indigo-500`}
+                    value={s.tarifaEmpresa ?? s.normal}
+                    onChange={(e) =>
+                      mutate((d) => {
+                        const target = d.servicios.find((x) => x.id === s.id)
+                        if (target) {
+                          const val = Number(e.target.value)
+                          target.tarifaEmpresa = val
+                          target.normal = val // Sincroniza para compatibilidad
+                        }
+                      })
+                    }
+                  />
+                </div>
+                <span className="mt-0.5 block text-[10px] font-semibold text-indigo-700">Corporativo B2B</span>
+              </td>
+
+              {/* 3. Tarifa Convenio Empresa */}
+              <td className={td}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-amber-700">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    className={`${inputCls} !w-28 border-amber-300 bg-amber-50/30 font-semibold text-amber-900 focus:border-amber-500`}
+                    value={s.convenio}
+                    onChange={(e) =>
+                      mutate((d) => {
+                        const target = d.servicios.find((x) => x.id === s.id)
+                        if (target) target.convenio = Number(e.target.value)
+                      })
+                    }
+                  />
+                </div>
+                <span className="mt-0.5 block text-[10px] text-amber-700">Con contrato</span>
+              </td>
+
+              {/* 4. Costo Interno (Solo CEO) */}
+              {isAdmin && (
+                <td className={td}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-400">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      className={`${inputCls} !w-28 font-medium text-slate-700`}
+                      value={s.costo ?? 0}
+                      onChange={(e) =>
+                        mutate((d) => {
+                          const target = d.servicios.find((x) => x.id === s.id)
+                          if (target) target.costo = Number(e.target.value) || undefined
+                        })
+                      }
+                    />
+                  </div>
+                  <span className="mt-0.5 block text-[10px] text-slate-400">Costo directo</span>
                 </td>
               )}
             </tr>

@@ -127,11 +127,15 @@ try {
         // Servicios
         $stmt = $pdo->query("SELECT * FROM servicios ORDER BY id ASC");
         $servicios = array_map(function ($r) {
+            $tarifaCliente = isset($r['tarifa_cliente']) && (int)$r['tarifa_cliente'] > 0 ? (int)$r['tarifa_cliente'] : (int)$r['normal'];
+            $tarifaEmpresa = isset($r['tarifa_empresa']) && (int)$r['tarifa_empresa'] > 0 ? (int)$r['tarifa_empresa'] : (int)$r['normal'];
             return [
                 'id' => (int)$r['id'],
                 'codigo' => $r['codigo'],
                 'nombre' => $r['nombre'],
                 'descripcion' => $r['descripcion'] ?? '',
+                'tarifaCliente' => $tarifaCliente,
+                'tarifaEmpresa' => $tarifaEmpresa,
                 'normal' => (int)$r['normal'],
                 'convenio' => (int)$r['convenio'],
                 'costo' => (int)$r['costo'],
@@ -637,14 +641,18 @@ try {
         // 6. Servicios
         if (isset($data['servicios']) && is_array($data['servicios'])) {
             $pdo->exec("DELETE FROM servicios WHERE 1=1");
-            $st = $pdo->prepare("INSERT INTO servicios (id, codigo, nombre, descripcion, normal, convenio, costo, activo) VALUES (:id, :codigo, :nombre, :descripcion, :normal, :convenio, :costo, :activo)");
+            $st = $pdo->prepare("INSERT INTO servicios (id, codigo, nombre, descripcion, tarifa_cliente, tarifa_empresa, normal, convenio, costo, activo) VALUES (:id, :codigo, :nombre, :descripcion, :tarifa_cliente, :tarifa_empresa, :normal, :convenio, :costo, :activo)");
             foreach ($data['servicios'] as $s) {
+                $nom = $s['tarifaEmpresa'] ?? $s['normal'] ?? 0;
+                $cli = $s['tarifaCliente'] ?? $nom;
                 $st->execute([
                     ':id' => $s['id'],
                     ':codigo' => $s['codigo'],
                     ':nombre' => $s['nombre'],
                     ':descripcion' => $s['descripcion'] ?? null,
-                    ':normal' => $s['normal'] ?? 0,
+                    ':tarifa_cliente' => $cli,
+                    ':tarifa_empresa' => $nom,
+                    ':normal' => $nom,
                     ':convenio' => $s['convenio'] ?? 0,
                     ':costo' => $s['costo'] ?? 0,
                     ':activo' => ($s['activo'] ?? true) ? 1 : 0,

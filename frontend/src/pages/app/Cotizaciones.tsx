@@ -185,13 +185,15 @@ function NuevaCotModal({
   const buildFromPack = (pid: number, n: number): ItemCot[] => {
     const p = db.paquetes.find((x) => x.id === pid)
     if (!p) return []
+    const isPersona = clienteForm.tipoCliente === 'PERSONA'
     return p.servicioIds.map((sid) => {
       const s = db.servicios.find((x) => x.id === sid)!
+      const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
       return {
         servicioId: s.id,
         descripcion: `${s.nombre}\n(${s.descripcion})`,
         cantidad: n,
-        normal: s.normal,
+        normal: baseNormal,
         convenio: s.convenio,
       }
     })
@@ -353,13 +355,15 @@ function NuevaCotModal({
                   const s = db.servicios.find((x) => x.id === sid)
                   if (s) {
                     const isSingle = s.codigo.startsWith('DIS-') || s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-')
+                    const isPersona = clienteForm.tipoCliente === 'PERSONA'
+                    const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
                     setItems((prev) => [
                       ...prev,
                       {
                         servicioId: s.id,
                         descripcion: `${s.nombre}\n(${s.descripcion})`,
                         cantidad: isSingle ? 1 : cant,
-                        normal: s.normal,
+                        normal: baseNormal,
                         convenio: s.convenio,
                       },
                     ])
@@ -367,11 +371,15 @@ function NuevaCotModal({
                 }}
               >
                 <option value="">+ Agregar servicio del catálogo PCG...</option>
-                {db.servicios.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre} ({fmtCLP(s.convenio)})
-                  </option>
-                ))}
+                {db.servicios.map((s) => {
+                  const isPersona = clienteForm.tipoCliente === 'PERSONA'
+                  const priceToShow = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre} · {isPersona ? 'Cliente' : 'Empresa'}: {fmtCLP(priceToShow)} (Convenio: {fmtCLP(s.convenio)})
+                    </option>
+                  )
+                })}
               </select>
               <button
                 type="button"

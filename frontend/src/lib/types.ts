@@ -208,6 +208,8 @@ export interface Servicio {
   codigo: string
   nombre: string
   descripcion: string
+  tarifaCliente?: number
+  tarifaEmpresa?: number
   normal: number
   convenio: number
   costo?: number

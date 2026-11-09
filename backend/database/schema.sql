@@ -123,6 +123,8 @@ CREATE TABLE servicios (
     codigo VARCHAR(50) UNIQUE NOT NULL,
     nombre VARCHAR(200) NOT NULL,
     descripcion TEXT NULL,
+    tarifa_cliente BIGINT DEFAULT 0,
+    tarifa_empresa BIGINT DEFAULT 0,
     normal BIGINT NOT NULL,
     convenio BIGINT NOT NULL,
     costo BIGINT DEFAULT 0,

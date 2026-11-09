@@ -63,6 +63,7 @@ Todas las contraseñas por defecto son: `pcg123`. Se puede ingresar indistintame
 10. **Alertas Preventivas (`/app/alertas`):** Ciclo preventivo cada 6 meses con botón para notificar por email al cliente.
 11. **Informes Técnicos (`/app/informes`):** Ficha técnica con diagnóstico, fotos antes/después y vista imprimible/PDF.
 12. **Personal & Roles (`/app/personal`):** Administración de colaboradores, habilitaciones técnicas/creativas y contraseñas.
-13. **Catálogo y Precios (`/app/catalogo`):** Tarifas de mano de obra para público general vs clientes con convenio.
+13. **Catálogo y Precios (`/app/catalogo`):** Tarifas diferenciadas por segmento con columnas separadas para **Tarifa Clientes Particulares** (verde) y **Tarifa Empresas B2B / Nominal** (azul/índigo), además de Tarifa Convenio y Costo Interno (CEO). Las cotizaciones aplican automáticamente la tarifa según si el cliente es Persona Natural o Empresa.
 14. **Auditoría Correos (`/app/correos`):** Trazabilidad completa de correos automáticos emitidos.
 15. **Nuestro Equipo PCG (`/app/equipo`):** Tarjetas interactivas con las especialidades de Brilan, Yovylin, Johan y Javier.
+
