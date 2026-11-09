@@ -378,8 +378,9 @@ function OTCard({
         </Link>
       )}
       {ot.horaCita && (
-        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/90 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
-          🕒 Hora agendada: {ot.horaCita} hrs · {ot.modalidadAtencion === 'DOMICILIO' ? '🚗 Domicilio' : '🏢 Laboratorio'}
+        <div className="mt-1.5 flex flex-col gap-0.5 rounded-lg border border-emerald-200 bg-emerald-50/90 px-2 py-1 text-[11px] font-bold text-emerald-800">
+          <div>🕒 Hora agendada: {ot.horaCita} hrs · {ot.modalidadAtencion === 'DOMICILIO' ? '🚗 Domicilio' : '🏢 Laboratorio'}</div>
+          {ot.direccionRetiro && <div className="text-[10px] font-semibold text-slate-600">📍 {ot.direccionRetiro}</div>}
         </div>
       )}
       {tareas.length > 0 && (
@@ -693,6 +694,7 @@ function ListView({ ots, open }: { ots: OT[]; open: (id: number) => void }) {
               {o.horaCita && (
                 <div className="text-[11px] font-bold text-emerald-700">
                   🕒 Hora reservada: {o.horaCita} hrs · {o.modalidadAtencion === 'DOMICILIO' ? '🚗 Domicilio' : '🏢 Laboratorio'}
+                  {o.direccionRetiro && <span className="block text-[10px] font-normal text-slate-500">📍 {o.direccionRetiro}</span>}
                 </div>
               )}
             </td>

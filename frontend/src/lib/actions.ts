@@ -77,6 +77,8 @@ export function resolverORegistrarCliente(
     if (contacto) {
       if (cleanEmail) contacto.email = cleanEmail
       if (d.telefono?.trim()) contacto.telefono = d.telefono.trim()
+      if (d.direccion?.trim()) empExistente.direccion = d.direccion.trim()
+      if (d.ciudad?.trim()) empExistente.ciudad = d.ciudad.trim()
       return {
         usuarioId: contacto.id,
         empresaId: empExistente.id,
@@ -95,7 +97,10 @@ export function resolverORegistrarCliente(
   )
   if (usuExistente) {
     if (d.telefono?.trim()) usuExistente.telefono = d.telefono.trim()
+    if (d.direccion?.trim()) usuExistente.direccion = d.direccion.trim()
+    if (d.ciudad?.trim()) usuExistente.ciudad = d.ciudad.trim()
     const emp = db.empresas.find((e) => e.id === usuExistente.empresaId)
+    if (emp && d.direccion?.trim()) emp.direccion = d.direccion.trim()
     return {
       usuarioId: usuExistente.id,
       empresaId: usuExistente.empresaId,
@@ -158,6 +163,8 @@ export function resolverORegistrarCliente(
       activo: true,
       rut: d.rut.trim() || '15.000.000-0',
       telefono: d.telefono?.trim() || undefined,
+      direccion: d.direccion?.trim() || undefined,
+      ciudad: d.ciudad?.trim() || undefined,
     })
     return {
       usuarioId: nuevoUid,
@@ -389,6 +396,7 @@ export function agendarHoraMantencion(
     fechaCita: string
     horaCita: string
     modalidadAtencion: 'LABORATORIO' | 'DOMICILIO'
+    direccionRetiro?: string
     servicioId?: number
     tituloServicio: string
     montoEstimado: number
@@ -443,9 +451,16 @@ export function agendarHoraMantencion(
   const tecId = d.tecnicoId ?? workers[0]?.id ?? 3
   const tec = db.usuarios.find((u) => u.id === tecId)
 
-  const modLabel = d.modalidadAtencion === 'DOMICILIO' ? 'Retiro / Atención a Domicilio' : 'Ingreso en Laboratorio PCG SPA'
+  const modLabel = d.modalidadAtencion === 'DOMICILIO'
+    ? `Retiro / Atención a Domicilio${d.direccionRetiro ? ` (Dirección: ${d.direccionRetiro})` : ''}`
+    : 'Ingreso en Laboratorio PCG SPA'
   const eqObj = db.equipos.find((e) => e.id === equipoId)
   const eqDesc = eqObj ? `${eqObj.codigo} (${eqObj.marca} ${eqObj.modelo})` : '1 equipo'
+
+  if (d.direccionRetiro) {
+    if (cli) cli.direccion = d.direccionRetiro
+    if (emp) emp.direccion = d.direccionRetiro
+  }
 
   const ticket: Ticket = {
     id: nextId(db.tickets),
@@ -454,17 +469,18 @@ export function agendarHoraMantencion(
     empresaId: d.empresaId,
     tipo: 'MANTENCION',
     asunto: `Hora agendada (${d.horaCita} hrs): ${d.tituloServicio} — ${eqDesc}`,
-    descripcion: `Reserva de hora de mantención para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs (${modLabel}).${d.sintomasOComentarios ? `\nIndicaciones del cliente: ${d.sintomasOComentarios}` : ''}`,
+    descripcion: `Reserva de hora de mantención para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs (${modLabel}).${d.direccionRetiro ? `\n📍 Dirección de Retiro: ${d.direccionRetiro}` : ''}${d.sintomasOComentarios ? `\nIndicaciones del cliente: ${d.sintomasOComentarios}` : ''}`,
     equipoIds: equipoId ? [equipoId] : [],
     cantEquipos: 1,
     fechaCita: d.fechaCita,
     horaCita: d.horaCita,
     modalidadAtencion: d.modalidadAtencion,
+    direccionRetiro: d.direccionRetiro,
     estado: 'ACEPTADO',
     mensajes: [
       {
         usuarioId: d.creadoPor,
-        texto: `✅ Hora confirmada para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs (${modLabel}). Técnico asignado: ${tec?.nombre ?? 'Por asignar'}.`,
+        texto: `✅ Hora confirmada para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs (${modLabel}). Técnico asignado: ${tec?.nombre ?? 'Por asignar'}.${d.direccionRetiro ? ` Retiro en: ${d.direccionRetiro}.` : ''}`,
         interno: false,
         fecha: ahora(),
       },
@@ -475,7 +491,7 @@ export function agendarHoraMantencion(
 
   const ot = crearOT(db, {
     titulo: `${d.tituloServicio} (${d.horaCita} hrs) — ${eqObj ? `${eqObj.marca} ${eqObj.modelo}` : cli?.nombre ?? 'Cliente'}`,
-    descripcion: `Hora agendada por ${emp?.razonSocial ?? cli?.nombre ?? 'Cliente Natural'} para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs · Modalidad: ${modLabel}.${d.sintomasOComentarios ? `\nNotas: ${d.sintomasOComentarios}` : ''}`,
+    descripcion: `Hora agendada por ${emp?.razonSocial ?? cli?.nombre ?? 'Cliente Natural'} para el ${fmtFecha(d.fechaCita)} a las ${d.horaCita} hrs · Modalidad: ${modLabel}.${d.direccionRetiro ? `\n📍 Dirección de Retiro: ${d.direccionRetiro}` : ''}${d.sintomasOComentarios ? `\nNotas: ${d.sintomasOComentarios}` : ''}`,
     tipo: 'MANTENIMIENTO',
     prioridad: 'MEDIA',
     usuarioId: d.usuarioId,
@@ -492,6 +508,7 @@ export function agendarHoraMantencion(
     plantilla: true,
     creadoPor: d.creadoPor,
   })
+  ot.direccionRetiro = d.direccionRetiro
   ticket.otId = ot.id
 
   if (cli?.email) {
@@ -501,7 +518,7 @@ export function agendarHoraMantencion(
       para: cli.email,
       cc: db.config.email,
       asunto: `Confirmación de Hora Agendada (${fmtFecha(d.fechaCita)} · ${d.horaCita} hrs) — ${ot.codigo} | ${db.config.razonSocial}`,
-      cuerpo: `Hola ${cli.nombre},\n\nTu hora de mantención en ${db.config.razonSocial} ha quedado confirmada:\n\n• Orden de Trabajo: ${ot.codigo}\n• Servicio: ${d.tituloServicio}\n• Fecha reservada: ${fmtFecha(d.fechaCita)}\n• Bloque horario: ${d.horaCita} hrs\n• Modalidad: ${modLabel}\n• Equipo: ${eqDesc}\n• Técnico responsable: ${tec?.nombre ?? 'Equipo Técnico PCG SPA'}\n• Valor estimado: $${d.montoEstimado.toLocaleString('es-CL')}\n\nContacto Laboratorio PCG SPA: ${db.config.email} · WhatsApp: ${db.config.telefono}.\n\n¡Te esperamos!\n${db.config.razonSocial}`,
+      cuerpo: `Hola ${cli.nombre},\n\nTu hora de mantención en ${db.config.razonSocial} ha quedado confirmada:\n\n• Orden de Trabajo: ${ot.codigo}\n• Servicio: ${d.tituloServicio}\n• Fecha reservada: ${fmtFecha(d.fechaCita)}\n• Bloque horario: ${d.horaCita} hrs\n• Modalidad: ${modLabel}${d.direccionRetiro ? `\n• Dirección de Retiro / Domicilio: ${d.direccionRetiro}` : ''}\n• Equipo: ${eqDesc}\n• Técnico responsable: ${tec?.nombre ?? 'Equipo Técnico PCG SPA'}\n• Valor estimado: $${d.montoEstimado.toLocaleString('es-CL')}\n\nContacto Laboratorio PCG SPA: ${db.config.email} · WhatsApp: ${db.config.telefono}.\n\n¡Te esperamos!\n${db.config.razonSocial}`,
     })
   }
 

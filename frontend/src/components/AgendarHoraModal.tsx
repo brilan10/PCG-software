@@ -108,6 +108,9 @@ export default function AgendarHoraModal({
   const [fechaCita, setFechaCita] = useState(proximosDias[0])
   const [horaCita, setHoraCita] = useState('10:30')
   const [modalidad, setModalidad] = useState<'LABORATORIO' | 'DOMICILIO'>('LABORATORIO')
+  const [direccionRetiro, setDireccionRetiro] = useState(defaultEmp?.direccion || '')
+  const [comunaRetiro, setComunaRetiro] = useState(defaultEmp?.ciudad || 'Santiago')
+  const [referenciaRetiro, setReferenciaRetiro] = useState('')
   const [tecnicoId, setTecnicoId] = useState<number>(3)
   const [comentarios, setComentarios] = useState('')
 
@@ -122,11 +125,20 @@ export default function AgendarHoraModal({
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
+          if (modalidad === 'DOMICILIO' && !direccionRetiro.trim()) {
+            alert('Por favor indica la dirección para el retiro a domicilio.')
+            return
+          }
           let createdOtId = 0
           mutate((d) => {
             const resolved = isStaff
               ? resolverORegistrarCliente(d, clienteForm)
               : { usuarioId: user!.id, empresaId: user!.empresaId }
+
+            const dirTexto =
+              modalidad === 'DOMICILIO' && direccionRetiro.trim()
+                ? `${direccionRetiro.trim()}, ${comunaRetiro.trim() || 'Santiago'}${referenciaRetiro.trim() ? ` (Ref: ${referenciaRetiro.trim()})` : ''}`
+                : undefined
 
             const res = agendarHoraMantencion(d, {
               usuarioId: resolved.usuarioId,
@@ -134,6 +146,7 @@ export default function AgendarHoraModal({
               fechaCita,
               horaCita,
               modalidadAtencion: modalidad,
+              direccionRetiro: dirTexto,
               tituloServicio: planActual.titulo,
               montoEstimado: planActual.precio,
               equipoExistenteId: modoEquipo === 'EXISTENTE' ? equipoExistenteId : undefined,
@@ -344,6 +357,53 @@ export default function AgendarHoraModal({
               </select>
             </Field>
           </div>
+
+          {modalidad === 'DOMICILIO' && (
+            <div className="mt-3 rounded-2xl border border-emerald-300 bg-emerald-50/80 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-900">
+                  📍 Dirección para Retiro a Domicilio
+                </span>
+                <span className="rounded bg-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
+                  Requerido
+                </span>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <Field label="Dirección (Calle, Número, Depto/Oficina) *">
+                    <input
+                      className={inputCls}
+                      value={direccionRetiro}
+                      onChange={(e) => setDireccionRetiro(e.target.value)}
+                      placeholder="Ej: Av. Providencia 1234, Depto 502"
+                      required={modalidad === 'DOMICILIO'}
+                    />
+                  </Field>
+                </div>
+                <div>
+                  <Field label="Comuna / Ciudad *">
+                    <input
+                      className={inputCls}
+                      value={comunaRetiro}
+                      onChange={(e) => setComunaRetiro(e.target.value)}
+                      placeholder="Ej: Providencia, Santiago…"
+                      required={modalidad === 'DOMICILIO'}
+                    />
+                  </Field>
+                </div>
+                <div className="sm:col-span-3">
+                  <Field label="Referencia de retiro / acceso (Opcional)">
+                    <input
+                      className={inputCls}
+                      value={referenciaRetiro}
+                      onChange={(e) => setReferenciaRetiro(e.target.value)}
+                      placeholder="Ej: Portón negro, llamar antes de pasar, conserjería autorizada"
+                    />
+                  </Field>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 4. Datos del Equipo a Mantener */}

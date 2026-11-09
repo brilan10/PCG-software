@@ -92,6 +92,8 @@ export interface Usuario {
   aptoTecnico?: boolean
   /** Casilla de habilitación: Apto para participar/trabajar como desarrollador o creativo web */
   aptoDesarrollador?: boolean
+  direccion?: string
+  ciudad?: string
 }
 
 export interface Empresa {
@@ -194,6 +196,7 @@ export interface Ticket {
   fechaCita?: string
   horaCita?: string
   modalidadAtencion?: 'LABORATORIO' | 'DOMICILIO'
+  direccionRetiro?: string
   otId?: number
   estado: EstadoTicket
   mensajes: Mensaje[]
@@ -312,6 +315,7 @@ export interface OT {
   fin: string
   horaCita?: string
   modalidadAtencion?: 'LABORATORIO' | 'DOMICILIO'
+  direccionRetiro?: string
   equipoIds: number[]
   total: number
   estadoPago: 'PENDIENTE' | 'VERIFICANDO' | 'PAGADO'
@@ -539,7 +543,7 @@ export interface ProyectoWebSoftware {
   montoCobrado?: number
   estadoCobro?: EstadoCobroProyecto
   incluyeMantencionWeb: boolean
-  planMantencion?: 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'
+  planMantencion?: 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL' | 'SIN_MENSUALIDAD'
   valorMantencion: number
   fechaInicio: string
   fechaEntrega?: string

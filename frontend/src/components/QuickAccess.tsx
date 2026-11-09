@@ -22,6 +22,9 @@ export default function QuickAccess() {
   const [email, setEmail] = useState('')
   const [telefono, setTelefono] = useState('+56 9 ')
   const [razonSocial, setRazonSocial] = useState('')
+  const [direccion, setDireccion] = useState('')
+  const [comuna, setComuna] = useState('Santiago')
+  const [referenciaDomicilio, setReferenciaDomicilio] = useState('')
   const ciudad = 'Santiago'
 
   // Datos de la mantención / equipo
@@ -213,9 +216,18 @@ export default function QuickAccess() {
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault()
+                if (modalMode === 'HORA_NATURAL' && modalidad === 'DOMICILIO' && !direccion.trim()) {
+                  alert('Por favor indica la dirección para el retiro a domicilio.')
+                  return
+                }
                 let targetUid = 0
                 let createdOtId = 0
                 mutate((d) => {
+                  const dirTexto =
+                    modalidad === 'DOMICILIO' && direccion.trim()
+                      ? `${direccion.trim()}, ${comuna.trim() || 'Santiago'}${referenciaDomicilio.trim() ? ` (Ref: ${referenciaDomicilio.trim()})` : ''}`
+                      : undefined
+
                   const res = resolverORegistrarCliente(d, {
                     modo: 'VALIDAR_O_NUEVO',
                     tipoCliente,
@@ -225,8 +237,8 @@ export default function QuickAccess() {
                     rut: rut.trim(),
                     razonSocial: tipoCliente === 'EMPRESA' ? razonSocial.trim() || nombre.trim() : undefined,
                     giro: tipoCliente === 'EMPRESA' ? 'Servicios / Empresa' : undefined,
-                    ciudad,
-                    direccion: ciudad,
+                    ciudad: modalidad === 'DOMICILIO' && comuna.trim() ? comuna.trim() : ciudad,
+                    direccion: dirTexto || ciudad,
                     inscribirAlertas: true,
                   })
                   targetUid = res.usuarioId
@@ -238,6 +250,7 @@ export default function QuickAccess() {
                       fechaCita,
                       horaCita,
                       modalidadAtencion: modalidad,
+                      direccionRetiro: dirTexto,
                       tituloServicio: planActual.titulo,
                       montoEstimado: planActual.precio,
                       nuevoEquipo: {
@@ -441,6 +454,56 @@ export default function QuickAccess() {
                       🚗 Solicitar Retiro / Domicilio
                     </button>
                   </div>
+
+                  {modalidad === 'DOMICILIO' && (
+                    <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-3.5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                          📍 Dirección para Retiro a Domicilio
+                        </span>
+                        <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                          Requerido
+                        </span>
+                      </div>
+                      <div className="grid gap-2.5 sm:grid-cols-3">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-slate-300">
+                            Dirección completa (Calle, Número, Depto / Oficina / Villa) *
+                          </label>
+                          <input
+                            className="w-full rounded-xl border border-emerald-500/30 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+                            value={direccion}
+                            onChange={(e) => setDireccion(e.target.value)}
+                            placeholder="Ej: Av. Providencia 1234, Depto 502"
+                            required={modalidad === 'DOMICILIO'}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-300">
+                            Comuna / Ciudad *
+                          </label>
+                          <input
+                            className="w-full rounded-xl border border-emerald-500/30 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+                            value={comuna}
+                            onChange={(e) => setComuna(e.target.value)}
+                            placeholder="Ej: Providencia, Santiago…"
+                            required={modalidad === 'DOMICILIO'}
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="mb-1 block text-xs font-medium text-slate-300">
+                            Referencia de retiro / acceso (Opcional)
+                          </label>
+                          <input
+                            className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+                            value={referenciaDomicilio}
+                            onChange={(e) => setReferenciaDomicilio(e.target.value)}
+                            placeholder="Ej: Portón café, conserje autorizado para entregar equipo, llamar 5 min antes"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -72,7 +72,12 @@ export default function ProyectosPage() {
     const gananciaNetaProyectos = totalVendido - costoExternoTotal
 
     const ingresoRecurrente = recurrenteWeb(proyectos)
-    const conMantencionCount = proyectos.filter((p) => p.incluyeMantencionWeb).length
+    const conMantencionCount = proyectos.filter(
+      (p) => p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD',
+    ).length
+    const soloVentaCount = proyectos.filter(
+      (p) => !p.incluyeMantencionWeb || p.planMantencion === 'SIN_MENSUALIDAD',
+    ).length
 
     return {
       totalVendido,
@@ -84,6 +89,7 @@ export default function ProyectosPage() {
       gananciaNetaProyectos,
       ingresoRecurrente,
       conMantencionCount,
+      soloVentaCount,
       totalProyectos: proyectos.length,
     }
   }, [proyectos])
@@ -220,7 +226,10 @@ export default function ProyectosPage() {
             <span className="text-xs font-extrabold tracking-wider text-amber-700 uppercase">
               🔄 Mantenciones Web Recurrentes
             </span>
-            <Badge tone="amber">{kpis.conMantencionCount} activas</Badge>
+            <div className="flex items-center gap-1.5">
+              <Badge tone="green">{kpis.soloVentaCount} solo venta</Badge>
+              <Badge tone="amber">{kpis.conMantencionCount} activas</Badge>
+            </div>
           </div>
           <div className="mt-2 text-2xl font-black text-slate-900">
             <AnimatedNumber value={kpis.ingresoRecurrente} formatCLP suffix=" / ciclo" />
@@ -421,11 +430,19 @@ export default function ProyectosPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] font-bold text-emerald-800 uppercase">
-                        {p.incluyeMantencionWeb ? `Mantención (${p.planMantencion ?? 'MES'})` : 'Mantención'}
+                      <div className="text-[10px] font-bold text-slate-700 uppercase">
+                        {p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD'
+                          ? `Mantención (${p.planMantencion ?? 'MES'})`
+                          : 'Modalidad'}
                       </div>
-                      <div className="text-lg font-black text-emerald-700">
-                        {p.incluyeMantencionWeb ? `${fmtCLP(p.valorMantencion)}` : 'Sin mantención'}
+                      <div className="text-base font-black text-slate-800">
+                        {p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD' ? (
+                          <span className="text-emerald-700">{fmtCLP(p.valorMantencion)}</span>
+                        ) : (
+                          <span className="inline-block text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                            📦 Solo venta (Sin mensualidad)
+                          </span>
+                        )}
                       </div>
                       <div className="mt-0.5 text-[11px] text-slate-500">
                         {p.fechaInicio ? `Inicio: ${fmtFecha(p.fechaInicio)}` : ''}
@@ -624,7 +641,7 @@ export default function ProyectosPage() {
                   })()}
 
                   {/* Próxima Mantención Web (si tiene) */}
-                  {p.incluyeMantencionWeb && p.proximaMantencionWeb && (
+                  {p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD' && p.proximaMantencionWeb && (
                     <div className="flex items-center justify-between text-xs">
                       <Badge tone={diasMant !== null && diasMant <= 7 ? 'amber' : 'green'}>
                         🔧 Próx. Mantención Web: {fmtFecha(p.proximaMantencionWeb)}
@@ -634,7 +651,7 @@ export default function ProyectosPage() {
                         onClick={() => {
                           mutate((d) => {
                             const target = d.proyectosWeb?.find((x) => x.id === p.id)
-                            if (!target) return
+                            if (!target || target.planMantencion === 'SIN_MENSUALIDAD') return
                             const stepDays =
                               target.planMantencion === 'MENSUAL'
                                 ? 30
@@ -850,7 +867,7 @@ export default function ProyectosPage() {
                 </td>
 
                 <td className={td}>
-                  {p.incluyeMantencionWeb ? (
+                  {p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD' ? (
                     <div>
                       <div className="font-extrabold text-emerald-700">
                         {fmtCLP(p.valorMantencion)} / {p.planMantencion ?? 'MES'}
@@ -862,7 +879,9 @@ export default function ProyectosPage() {
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">— Sin mantención</span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 text-xs font-semibold text-indigo-800">
+                      📦 Solo venta (Sin mensualidad)
+                    </span>
                   )}
                 </td>
 
@@ -1027,13 +1046,15 @@ function ModalProyectoCompleto({
 
   // Mantención Web
   const [incluyeMantencionWeb, setIncluyeMantencionWeb] = useState(
-    proyecto?.incluyeMantencionWeb ?? true,
+    proyecto ? (proyecto.incluyeMantencionWeb && proyecto.planMantencion !== 'SIN_MENSUALIDAD') : true,
   )
-  const [planMantencion, setPlanMantencion] = useState<'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'>(
-    proyecto?.planMantencion ?? 'MENSUAL',
+  const [planMantencion, setPlanMantencion] = useState<
+    'SIN_MENSUALIDAD' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'
+  >(
+    proyecto?.planMantencion ?? (proyecto?.incluyeMantencionWeb === false ? 'SIN_MENSUALIDAD' : 'MENSUAL'),
   )
   const [valorMantencion, setValorMantencion] = useState(
-    proyecto?.valorMantencion ?? 35000,
+    proyecto?.valorMantencion ?? (proyecto?.incluyeMantencionWeb === false ? 0 : 35000),
   )
   const [fechaInicio, setFechaInicio] = useState(proyecto?.fechaInicio ?? today())
   const [fechaEntrega, setFechaEntrega] = useState(proyecto?.fechaEntrega ?? addDays(today(), 15))
@@ -1107,12 +1128,18 @@ function ModalProyectoCompleto({
               valorProyecto: Number(valorProyecto) || 0,
               montoCobrado: Number(montoCobrado) || 0,
               estadoCobro,
-              incluyeMantencionWeb,
-              planMantencion: incluyeMantencionWeb ? planMantencion : undefined,
-              valorMantencion: incluyeMantencionWeb ? Number(valorMantencion) || 0 : 0,
+              incluyeMantencionWeb: planMantencion !== 'SIN_MENSUALIDAD' && incluyeMantencionWeb,
+              planMantencion,
+              valorMantencion:
+                planMantencion === 'SIN_MENSUALIDAD' || !incluyeMantencionWeb
+                  ? 0
+                  : Number(valorMantencion) || 0,
               fechaInicio,
               fechaEntrega,
-              proximaMantencionWeb: incluyeMantencionWeb ? proximaMantencionWeb : undefined,
+              proximaMantencionWeb:
+                planMantencion !== 'SIN_MENSUALIDAD' && incluyeMantencionWeb
+                  ? proximaMantencionWeb
+                  : undefined,
               vencimientoDominioHosting,
               estado,
               responsableId: Number(responsableId) || 1,
@@ -1685,52 +1712,124 @@ function ModalProyectoCompleto({
           </Field>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+              💼 Modalidad de Venta y Mantención
+            </span>
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIncluyeMantencionWeb(false)
+                  setPlanMantencion('SIN_MENSUALIDAD')
+                  setValorMantencion(0)
+                }}
+                className={cx(
+                  'rounded-md px-2.5 py-1 font-bold transition',
+                  planMantencion === 'SIN_MENSUALIDAD' || !incluyeMantencionWeb
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                📦 Solo Venta (Sin mensualidad)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIncluyeMantencionWeb(true)
+                  if (planMantencion === 'SIN_MENSUALIDAD') setPlanMantencion('MENSUAL')
+                  if (!valorMantencion) setValorMantencion(35000)
+                }}
+                className={cx(
+                  'rounded-md px-2.5 py-1 font-bold transition',
+                  incluyeMantencionWeb && planMantencion !== 'SIN_MENSUALIDAD'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                🔧 Con Plan de Mantención Web
+              </button>
+            </div>
+          </div>
+
           <label className="flex cursor-pointer items-center gap-2 text-xs font-extrabold text-slate-800">
             <input
               type="checkbox"
-              checked={incluyeMantencionWeb}
-              onChange={(e) => setIncluyeMantencionWeb(e.target.checked)}
+              checked={incluyeMantencionWeb && planMantencion !== 'SIN_MENSUALIDAD'}
+              onChange={(e) => {
+                const nextVal = e.target.checked
+                setIncluyeMantencionWeb(nextVal)
+                if (!nextVal) {
+                  setPlanMantencion('SIN_MENSUALIDAD')
+                  setValorMantencion(0)
+                } else {
+                  setPlanMantencion('MENSUAL')
+                  if (!valorMantencion) setValorMantencion(35000)
+                }
+              }}
               className="h-4 w-4 rounded accent-emerald-600"
             />
             <span>🔧 Este cliente tiene contratado Plan de Mantención Web / Soporte con PCG SPA</span>
           </label>
 
-          {incluyeMantencionWeb && (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Periodicidad">
-                <select
-                  className={inputCls}
-                  value={planMantencion}
-                  onChange={(e) =>
-                    setPlanMantencion(e.target.value as 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL')
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Periodicidad">
+              <select
+                className={inputCls}
+                value={planMantencion}
+                onChange={(e) => {
+                  const val = e.target.value as 'SIN_MENSUALIDAD' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'
+                  setPlanMantencion(val)
+                  if (val === 'SIN_MENSUALIDAD') {
+                    setIncluyeMantencionWeb(false)
+                    setValorMantencion(0)
+                  } else {
+                    setIncluyeMantencionWeb(true)
+                    if (valorMantencion === 0) setValorMantencion(35000)
                   }
-                >
-                  <option value="MENSUAL">Mensual</option>
-                  <option value="TRIMESTRAL">Trimestral</option>
-                  <option value="SEMESTRAL">Semestral</option>
-                  <option value="ANUAL">Anual</option>
-                </select>
-              </Field>
-              <Field label="Monto Mantención ($ CLP)">
-                <input
-                  type="number"
-                  min={0}
-                  className={inputCls}
-                  value={valorMantencion}
-                  onChange={(e) => setValorMantencion(Number(e.target.value))}
-                />
-              </Field>
-              <Field label="Próxima Mantención">
-                <input
-                  type="date"
-                  className={inputCls}
-                  value={proximaMantencionWeb}
-                  onChange={(e) => setProximaMantencionWeb(e.target.value)}
-                />
-              </Field>
-            </div>
-          )}
+                }}
+              >
+                <option value="SIN_MENSUALIDAD">📦 Solo venta del sistema (Sin mensualidad)</option>
+                <option value="MENSUAL">Mensual</option>
+                <option value="TRIMESTRAL">Trimestral</option>
+                <option value="SEMESTRAL">Semestral</option>
+                <option value="ANUAL">Anual</option>
+              </select>
+            </Field>
+
+            {planMantencion === 'SIN_MENSUALIDAD' || !incluyeMantencionWeb ? (
+              <div className="sm:col-span-2 flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50/90 px-3.5 py-2 text-xs text-sky-900">
+                <span className="text-xl">📦</span>
+                <div>
+                  <div className="font-extrabold text-sky-950">Modalidad: Solo Venta del Sistema / Software</div>
+                  <div className="text-[11px] text-sky-800">
+                    Cobro único por desarrollo, entrega o licencia. No genera facturación recurrente mensual ni alertas de mantención periódica.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Field label="Monto Mantención ($ CLP)">
+                  <input
+                    type="number"
+                    min={0}
+                    className={inputCls}
+                    value={valorMantencion}
+                    onChange={(e) => setValorMantencion(Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Próxima Mantención">
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={proximaMantencionWeb}
+                    onChange={(e) => setProximaMantencionWeb(e.target.value)}
+                  />
+                </Field>
+              </>
+            )}
+          </div>
         </div>
 
         <Field label="Notas internas u observaciones del proyecto">

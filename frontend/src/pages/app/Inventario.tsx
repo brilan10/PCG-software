@@ -1992,9 +1992,9 @@ export function ModalProyectoWebSoftware({
   const [incluyeMantencionWeb, setIncluyeMantencionWeb] = useState(
     proyecto?.incluyeMantencionWeb ?? true,
   )
-  const [planMantencion, setPlanMantencion] = useState<'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'>(
-    proyecto?.planMantencion ?? 'MENSUAL',
-  )
+  const [planMantencion, setPlanMantencion] = useState<
+    'SIN_MENSUALIDAD' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'
+  >(proyecto?.planMantencion ?? 'MENSUAL')
   const [valorProyecto, setValorProyecto] = useState(proyecto?.valorProyecto ?? 280000)
   const [valorMantencion, setValorMantencion] = useState(proyecto?.valorMantencion ?? 35000)
   const [fechaInicio, setFechaInicio] = useState(proyecto?.fechaInicio ?? today())
@@ -2061,10 +2061,13 @@ export function ModalProyectoWebSoftware({
               urlDominio: urlDominio.trim(),
               stackTecnologico: stackTecnologico.trim(),
               hostingProveedor: hostingProveedor.trim(),
-              incluyeMantencionWeb,
-              planMantencion: incluyeMantencionWeb ? planMantencion : undefined,
+              incluyeMantencionWeb: planMantencion !== 'SIN_MENSUALIDAD' && incluyeMantencionWeb,
+              planMantencion: planMantencion,
               valorProyecto: Number(valorProyecto) || 0,
-              valorMantencion: incluyeMantencionWeb ? Number(valorMantencion) || 0 : 0,
+              valorMantencion:
+                planMantencion === 'SIN_MENSUALIDAD' || !incluyeMantencionWeb
+                  ? 0
+                  : Number(valorMantencion) || 0,
               fechaInicio,
               proximaMantencionWeb: incluyeMantencionWeb ? proximaMantencionWeb : undefined,
               vencimientoDominioHosting,
@@ -2268,10 +2271,19 @@ export function ModalProyectoWebSoftware({
                 <select
                   className={inputCls}
                   value={planMantencion}
-                  onChange={(e) =>
-                    setPlanMantencion(e.target.value as 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL')
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value as 'SIN_MENSUALIDAD' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL'
+                    setPlanMantencion(val)
+                    if (val === 'SIN_MENSUALIDAD') {
+                      setIncluyeMantencionWeb(false)
+                      setValorMantencion(0)
+                    } else {
+                      setIncluyeMantencionWeb(true)
+                      if (!valorMantencion) setValorMantencion(35000)
+                    }
+                  }}
                 >
+                  <option value="SIN_MENSUALIDAD">📦 Solo venta del sistema (Sin mensualidad)</option>
                   <option value="MENSUAL">Mensual</option>
                   <option value="TRIMESTRAL">Trimestral</option>
                   <option value="SEMESTRAL">Semestral</option>
