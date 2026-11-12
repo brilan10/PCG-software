@@ -217,6 +217,8 @@ try {
                 'datosFacturacion' => !empty($r['datos_facturacion']) ? json_decode($r['datos_facturacion'], true) : null,
                 'historial' => !empty($r['historial']) ? json_decode($r['historial'], true) : [],
                 'comentarios' => !empty($r['comentarios']) ? json_decode($r['comentarios'], true) : [],
+                'serviciosRealizados' => !empty($r['servicios_realizados']) ? json_decode($r['servicios_realizados'], true) : [],
+                'costoTotal' => (int)($r['costo_total'] ?? 0),
                 'creado' => $r['creado'],
             ];
         }, $stmt->fetchAll());
@@ -711,7 +713,7 @@ try {
         // 9. OTs
         if (isset($data['ots']) && is_array($data['ots'])) {
             $pdo->exec("DELETE FROM ots WHERE 1=1");
-            $st = $pdo->prepare("INSERT INTO ots (id, codigo, ticket_id, cotizacion_id, proyecto_id, origen, usuario_id, empresa_id, titulo, descripcion, tipo, prioridad, estado, tecnico_id, inicio, fin, hora_cita, modalidad_atencion, equipo_ids, total, estado_pago, comprobante_nombre, requiere_factura, numero_factura, factura_nombre, datos_facturacion, historial, comentarios, creado) VALUES (:id, :codigo, :ticket_id, :cotizacion_id, :proyecto_id, :origen, :usuario_id, :empresa_id, :titulo, :descripcion, :tipo, :prioridad, :estado, :tecnico_id, :inicio, :fin, :hora_cita, :modalidad_atencion, :equipo_ids, :total, :estado_pago, :comprobante_nombre, :requiere_factura, :numero_factura, :factura_nombre, :datos_facturacion, :historial, :comentarios, :creado)");
+            $st = $pdo->prepare("INSERT INTO ots (id, codigo, ticket_id, cotizacion_id, proyecto_id, origen, usuario_id, empresa_id, titulo, descripcion, tipo, prioridad, estado, tecnico_id, inicio, fin, hora_cita, modalidad_atencion, equipo_ids, total, estado_pago, comprobante_nombre, requiere_factura, numero_factura, factura_nombre, datos_facturacion, historial, comentarios, creado, servicios_realizados, costo_total) VALUES (:id, :codigo, :ticket_id, :cotizacion_id, :proyecto_id, :origen, :usuario_id, :empresa_id, :titulo, :descripcion, :tipo, :prioridad, :estado, :tecnico_id, :inicio, :fin, :hora_cita, :modalidad_atencion, :equipo_ids, :total, :estado_pago, :comprobante_nombre, :requiere_factura, :numero_factura, :factura_nombre, :datos_facturacion, :historial, :comentarios, :creado, :servicios_realizados, :costo_total)");
             foreach ($data['ots'] as $o) {
                 $st->execute([
                     ':id' => $o['id'],
@@ -743,6 +745,8 @@ try {
                     ':historial' => json_encode($o['historial'] ?? [], JSON_UNESCAPED_UNICODE),
                     ':comentarios' => json_encode($o['comentarios'] ?? [], JSON_UNESCAPED_UNICODE),
                     ':creado' => !empty($o['creado']) ? $o['creado'] : date('Y-m-d H:i:s'),
+                    ':servicios_realizados' => json_encode($o['serviciosRealizados'] ?? [], JSON_UNESCAPED_UNICODE),
+                    ':costo_total' => $o['costoTotal'] ?? 0,
                 ]);
             }
         }

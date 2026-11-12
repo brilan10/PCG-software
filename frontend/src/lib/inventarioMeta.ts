@@ -140,6 +140,8 @@ export const ESTADO_PROYECTO_WEB_META: Record<
   { label: string; tone: 'blue' | 'green' | 'violet' | 'amber' | 'slate' }
 > = {
   EN_DESARROLLO: { label: '🛠️ En Desarrollo / QA', tone: 'blue' },
+  EN_PROCESO: { label: '⏳ En Proceso', tone: 'blue' },
+  EN_ACTUALIZACION: { label: '🔄 En Actualización / Mejoras', tone: 'amber' },
   PRODUCCION_ACTIVO: { label: '🚀 En Producción (Online)', tone: 'green' },
   MANTENCION_ACTIVA: { label: '⚡ Con Mantención Web Activa', tone: 'violet' },
   PENDIENTE_RENOVACION: { label: '⚠️ Por Renovar Hosting / Mantención', tone: 'amber' },

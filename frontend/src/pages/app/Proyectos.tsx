@@ -34,9 +34,10 @@ import {
 } from '@/components/aceternity'
 
 export default function ProyectosPage() {
-  const { db, mutate } = useStore()
+  const { db, user, mutate } = useStore()
   const proyectos = db.proyectosWeb ?? []
   const hoy = today()
+  const esStaff = user && ['ADMIN', 'DOC_PROCESS', 'WORKER'].includes(user.rol)
 
   const [tabTipo, setTabTipo] = useState<string>('TODOS')
   const [filtroModalidad, setFiltroModalidad] = useState<'TODOS' | ModalidadEjecucion>('TODOS')
@@ -390,7 +391,31 @@ export default function ProyectosPage() {
                       </div>
                       <h3 className="mt-1 text-base font-extrabold text-slate-900">{p.nombreProyecto}</h3>
                     </div>
-                    <Badge tone={eMeta.tone}>{eMeta.label}</Badge>
+                    {esStaff ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <select
+                          value={p.estado}
+                          onChange={(e) => {
+                            const nuevo = e.target.value as EstadoProyectoWeb
+                            mutate((draft) => {
+                              const pr = draft.proyectosWeb?.find((x) => x.id === p.id)
+                              if (pr) pr.estado = nuevo
+                            })
+                          }}
+                          className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-800 shadow-2xs hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                          title="Cambiar estado del proyecto en 1 clic"
+                        >
+                          {Object.entries(ESTADO_PROYECTO_WEB_META).map(([k, meta]) => (
+                            <option key={k} value={k}>
+                              {meta.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[10px] font-semibold text-slate-400">Clic para cambiar estado</span>
+                      </div>
+                    ) : (
+                      <Badge tone={eMeta.tone}>{eMeta.label}</Badge>
+                    )}
                   </div>
 
                   {/* Cliente / Empresa con enlace a Cartera */}
@@ -574,22 +599,47 @@ export default function ProyectosPage() {
                     const otsVinculadas = (db.ots ?? []).filter((o) => o.proyectoId === p.id)
                     return (
                       <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
                             <span>📋</span>
                             <span>Órdenes de Trabajo ({otsVinculadas.length})</span>
                           </div>
-                          <Link
-                            to={`/app/ots?nueva=1&proyectoId=${p.id}`}
-                            className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition hover:bg-emerald-700"
-                          >
-                            + Planificar OT
-                          </Link>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Selector para asociar OT existente al proyecto */}
+                            <select
+                              className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-2xs hover:border-emerald-500 focus:outline-none"
+                              defaultValue=""
+                              onChange={(e) => {
+                                const otId = Number(e.target.value)
+                                if (!otId) return
+                                mutate((draft) => {
+                                  const otToLink = draft.ots.find((o) => o.id === otId)
+                                  if (otToLink) otToLink.proyectoId = p.id
+                                })
+                                e.target.value = ''
+                              }}
+                            >
+                              <option value="">+ Asociar OT existente...</option>
+                              {db.ots
+                                .filter((o) => o.proyectoId !== p.id)
+                                .map((o) => (
+                                  <option key={o.id} value={o.id}>
+                                    {o.codigo} - {o.titulo} {o.proyectoId ? `(Reasignar)` : ''}
+                                  </option>
+                                ))}
+                            </select>
+                            <Link
+                              to={`/app/ots?nueva=1&proyectoId=${p.id}`}
+                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition hover:bg-emerald-700"
+                            >
+                              + Planificar OT
+                            </Link>
+                          </div>
                         </div>
 
                         {otsVinculadas.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-2.5 text-center text-xs text-slate-500">
-                            Sin OT asociada. Haz clic en <span className="font-bold text-emerald-700">+ Planificar OT</span> para crear fases de desarrollo.
+                            Sin OT asociada. Haz clic en <span className="font-bold text-emerald-700">+ Planificar OT</span> o asocia una existente arriba.
                           </div>
                         ) : (
                           <div className="space-y-1.5">
@@ -611,6 +661,19 @@ export default function ProyectosPage() {
                                       >
                                         Ver OT →
                                       </Link>
+                                      <button
+                                        type="button"
+                                        title="Desvincular OT de este proyecto"
+                                        onClick={() => {
+                                          mutate((draft) => {
+                                            const o = draft.ots.find((x) => x.id === ot.id)
+                                            if (o) o.proyectoId = undefined
+                                          })
+                                        }}
+                                        className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-100 transition"
+                                      >
+                                        ✕
+                                      </button>
                                     </div>
                                   </div>
                                   <div className="mt-1 text-xs font-semibold text-slate-900 truncate">{ot.titulo}</div>
@@ -671,11 +734,29 @@ export default function ProyectosPage() {
                       </button>
                     </div>
                   )}
+
+                  {/* Banner de Reunión de Avance sobre el Proyecto */}
+                  <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50/70 p-2.5">
+                    <div className="min-w-0 pr-2">
+                      <div className="text-xs font-bold text-indigo-950">
+                        📅 Reunión de Avance / Dudas del Proyecto
+                      </div>
+                      <div className="text-[11px] text-indigo-700">
+                        Agenda una sesión con el equipo de desarrollo de PCG vía Ticket de soporte.
+                      </div>
+                    </div>
+                    <Link
+                      to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-indigo-700"
+                    >
+                      📅 Agendar Reunión
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Footer Acciones */}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
                       onClick={() => setModalForm({ proyecto: p })}
@@ -683,6 +764,12 @@ export default function ProyectosPage() {
                     >
                       ✎ Editar Proyecto
                     </button>
+                    <Link
+                      to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
+                      className="rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-800 hover:bg-indigo-100"
+                    >
+                      📅 Agendar Reunión
+                    </Link>
                     <Link
                       to="/app/finanzas"
                       className="rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
@@ -745,7 +832,31 @@ export default function ProyectosPage() {
                     </Badge>
                   </div>
                   <div className="mt-1">
-                    <Badge tone={eMeta.tone}>{eMeta.label}</Badge>
+                    {esStaff ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <select
+                          value={p.estado}
+                          onChange={(e) => {
+                            const nuevo = e.target.value as EstadoProyectoWeb
+                            mutate((draft) => {
+                              const pr = draft.proyectosWeb?.find((x) => x.id === p.id)
+                              if (pr) pr.estado = nuevo
+                            })
+                          }}
+                          className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-800 shadow-2xs hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                          title="Cambiar estado del proyecto en 1 clic"
+                        >
+                          {Object.entries(ESTADO_PROYECTO_WEB_META).map(([k, meta]) => (
+                            <option key={k} value={k}>
+                              {meta.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[10px] font-semibold text-slate-400">Clic para cambiar estado</span>
+                      </div>
+                    ) : (
+                      <Badge tone={eMeta.tone}>{eMeta.label}</Badge>
+                    )}
                   </div>
                 </td>
 
@@ -1301,8 +1412,10 @@ function ModalProyectoCompleto({
                 value={estado}
                 onChange={(e) => setEstado(e.target.value as EstadoProyectoWeb)}
               >
-                <option value="PRODUCCION_ACTIVO">🚀 En Producción (Online)</option>
                 <option value="EN_DESARROLLO">🛠️ En Desarrollo / QA</option>
+                <option value="EN_PROCESO">🔄 En Proceso</option>
+                <option value="EN_ACTUALIZACION">⚙️ En Actualización</option>
+                <option value="PRODUCCION_ACTIVO">🚀 En Producción (Online)</option>
                 <option value="MANTENCION_ACTIVA">⚡ Con Mantención Activa</option>
                 <option value="ENTREGADO">✓ Entregado Conforme</option>
                 <option value="PENDIENTE_RENOVACION">⚠️ Pendiente Renovación</option>

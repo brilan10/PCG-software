@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store'
 import { useScope } from '@/lib/scope'
 import { cambiarEstadoOT, crearOT, resolverORegistrarCliente } from '@/lib/actions'
 import type { DatosClienteForm } from '@/lib/actions'
-import { ESTADOS_OT, ESTADO_OT_LABEL } from '@/lib/types'
+import { ESTADOS_OT, ESTADO_OT_LABEL, isAptoTecnico } from '@/lib/types'
 import type { OT, Prioridad } from '@/lib/types'
 import {
   addDays, calcAlertas, diffDays, fmtCLP, fmtFecha, fmtFechaHora, isoDate, today,
@@ -49,9 +49,67 @@ function Planner() {
   const [q, setQ] = useState('')
   const [nueva, setNueva] = useState(() => params.get('nueva') === '1')
   const [agendarHora, setAgendarHora] = useState(() => params.get('agendar') === '1')
+  const [showReporteTecnicos, setShowReporteTecnicos] = useState(false)
+  const [repTecnicoId, setRepTecnicoId] = useState<string>('')
+  const [repFechaDesde, setRepFechaDesde] = useState<string>('2026-11-01')
+  const [repFechaHasta, setRepFechaHasta] = useState<string>(today())
   const canManage = user!.rol === 'ADMIN' || user!.rol === 'DOC_PROCESS'
   const openId = params.get('ot') ? Number(params.get('ot')) : null
   const open = (id: number | null) => setParams(id ? { ot: String(id) } : {}, { replace: true })
+
+  const tecnicosDisponibles = useMemo(
+    () => db.usuarios.filter((u) => u.rol === 'WORKER' || u.rol === 'ADMIN' || isAptoTecnico(u)),
+    [db.usuarios],
+  )
+
+  const reporteData = useMemo(() => {
+    const otsFiltradas = sc.ots.filter((o) => {
+      const matchTec = !repTecnicoId || (repTecnicoId === '0' ? !o.tecnicoId : o.tecnicoId === Number(repTecnicoId))
+      const fechaRef = o.fin || o.inicio
+      const matchDesde = !repFechaDesde || (fechaRef ? fechaRef >= repFechaDesde : true)
+      const matchHasta = !repFechaHasta || (fechaRef ? fechaRef <= repFechaHasta : true)
+      return matchTec && matchDesde && matchHasta
+    })
+
+    const totalOTs = otsFiltradas.length
+    const terminadas = otsFiltradas.filter((o) => o.estado === 'ENTREGADO' || o.estado === 'LISTO')
+    const totalGenerado = otsFiltradas.reduce((acc, o) => acc + (o.costoTotal || 0), 0)
+    const totalEnFinanzas = otsFiltradas
+      .filter((o) => o.registradoEnFinanzas)
+      .reduce((acc, o) => acc + (o.costoTotal || 0), 0)
+    const promedioPorOT = totalOTs > 0 ? Math.round(totalGenerado / totalOTs) : 0
+
+    // Agrupación y desglose de servicios realizados
+    const srvMap = new Map<string, { codigo: string; descripcion: string; cantidad: number; total: number }>()
+    otsFiltradas.forEach((o) => {
+      (o.serviciosRealizados ?? []).forEach((s) => {
+        const key = s.codigo || s.descripcion
+        const ex = srvMap.get(key)
+        const sub = s.total || ((s.precioUnitario || 0) * (s.cantidad || 1))
+        if (ex) {
+          ex.cantidad += s.cantidad || 1
+          ex.total += sub
+        } else {
+          srvMap.set(key, {
+            codigo: s.codigo || 'SRV',
+            descripcion: s.descripcion,
+            cantidad: s.cantidad || 1,
+            total: sub,
+          })
+        }
+      })
+    })
+
+    return {
+      otsFiltradas,
+      totalOTs,
+      terminadasCount: terminadas.length,
+      totalGenerado,
+      totalEnFinanzas,
+      promedioPorOT,
+      desgloseServicios: Array.from(srvMap.values()).sort((a, b) => b.total - a.total),
+    }
+  }, [sc.ots, repTecnicoId, repFechaDesde, repFechaHasta])
 
   const ots = useMemo(
     () =>
@@ -98,6 +156,12 @@ function Planner() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Btn
+              variant={showReporteTecnicos ? 'primary' : 'secondary'}
+              onClick={() => setShowReporteTecnicos((prev) => !prev)}
+            >
+              📊 {showReporteTecnicos ? 'Ocultar Reporte' : 'Rendimiento y Ganancias por Técnico'}
+            </Btn>
+            <Btn
               variant="secondary"
               onClick={() => setAgendarHora(true)}
             >
@@ -107,6 +171,240 @@ function Planner() {
           </div>
         }
       />
+
+      {showReporteTecnicos && (
+        <Card
+          className="mb-6 border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50"
+          accent="violet"
+          title="📊 Reporte de Rendimiento Técnico y Ganancias por Período"
+          action={
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Filtrado en tiempo real</span>
+              <Btn size="sm" variant="ghost" onClick={() => setShowReporteTecnicos(false)}>
+                ✕ Cerrar
+              </Btn>
+            </div>
+          }
+        >
+          {/* Barra de Filtros */}
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-indigo-100 bg-white p-3.5 shadow-2xs">
+            <div>
+              <label className="block text-[11px] font-black uppercase text-indigo-900 mb-1">
+                Técnico / Personal Autorizado:
+              </label>
+              <select
+                className={`${inputCls} !w-56 font-bold`}
+                value={repTecnicoId}
+                onChange={(e) => setRepTecnicoId(e.target.value)}
+              >
+                <option value="">👥 Todos los Técnicos y Personal</option>
+                <option value="0">⚠️ Sin Técnico Asignado</option>
+                {tecnicosDisponibles.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nombre} ({u.rol === 'ADMIN' ? 'CEO/Admin' : u.cargo || 'Técnico'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase text-indigo-900 mb-1">
+                Desde Fecha:
+              </label>
+              <input
+                type="date"
+                className={`${inputCls} !w-36 font-semibold`}
+                value={repFechaDesde}
+                onChange={(e) => setRepFechaDesde(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase text-indigo-900 mb-1">
+                Hasta Fecha:
+              </label>
+              <input
+                type="date"
+                className={`${inputCls} !w-36 font-semibold`}
+                value={repFechaHasta}
+                onChange={(e) => setRepFechaHasta(e.target.value)}
+              />
+            </div>
+
+            {/* Accesos rápidos de fechas */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setRepFechaDesde('2026-11-01')
+                  setRepFechaHasta(today())
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Este Mes (Nov 2026)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRepFechaDesde(addDays(today(), -30))
+                  setRepFechaHasta(today())
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Últimos 30 días
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRepFechaDesde('2026-01-01')
+                  setRepFechaHasta('2026-12-31')
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Año 2026
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRepFechaDesde('')
+                  setRepFechaHasta('')
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Todo
+              </button>
+            </div>
+          </div>
+
+          {/* Tarjetas KPI de Rendimiento y Ganancias */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Total OTs en Rango</div>
+              <div className="mt-1 text-2xl font-black text-slate-900">{reporteData.totalOTs}</div>
+              <div className="mt-0.5 text-xs text-slate-500">
+                {reporteData.terminadasCount} terminada(s) / entregada(s)
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5 shadow-2xs">
+              <div className="text-[11px] font-bold text-emerald-800 uppercase">Monto Total Realizado</div>
+              <div className="mt-1 text-2xl font-black text-emerald-700">{fmtCLP(reporteData.totalGenerado)}</div>
+              <div className="mt-0.5 text-xs text-emerald-800">
+                Ganancias/servicios en OTs
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-3.5 shadow-2xs">
+              <div className="text-[11px] font-bold text-indigo-800 uppercase">Enviado a Finanzas</div>
+              <div className="mt-1 text-2xl font-black text-indigo-700">{fmtCLP(reporteData.totalEnFinanzas)}</div>
+              <div className="mt-0.5 text-xs text-indigo-800">
+                Ingresado en Libro de Caja
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+              <div className="text-[11px] font-bold text-slate-500 uppercase">Promedio por OT</div>
+              <div className="mt-1 text-2xl font-black text-slate-800">{fmtCLP(reporteData.promedioPorOT)}</div>
+              <div className="mt-0.5 text-xs text-slate-500">
+                Ticket promedio del técnico
+              </div>
+            </div>
+          </div>
+
+          {/* Desglose de Servicios Realizados en el Período */}
+          {reporteData.desgloseServicios.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+              <div className="mb-2 text-xs font-black uppercase text-slate-800">
+                🛠️ Desglose de Servicios y Reparaciones Realizadas en el Período:
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {reporteData.desgloseServicios.map((srv, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-extrabold text-slate-900 truncate">{srv.descripcion}</div>
+                      <div className="font-mono text-[10px] text-slate-500">
+                        {srv.codigo} · Cantidad: {srv.cantidad}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-emerald-700">{fmtCLP(srv.total)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tabla de OTs del período */}
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+            <div className="bg-slate-50 px-3.5 py-2 text-xs font-black text-slate-800 border-b border-slate-200">
+              📋 Listado Detallado de Órdenes de Trabajo del Filtro ({reporteData.otsFiltradas.length})
+            </div>
+            {reporteData.otsFiltradas.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                No se encontraron órdenes de trabajo para el técnico y rango de fechas seleccionado.
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
+                {reporteData.otsFiltradas.map((o) => {
+                  const tec = db.usuarios.find((u) => u.id === o.tecnicoId)
+                  const emp = db.empresas.find((e) => e.id === o.empresaId)
+                  const cli = db.usuarios.find((u) => u.id === o.usuarioId)
+                  const proy = o.proyectoId ? db.proyectosWeb?.find((p) => p.id === o.proyectoId) : undefined
+                  return (
+                    <div
+                      key={o.id}
+                      onClick={() => open(o.id)}
+                      className="flex cursor-pointer items-center justify-between p-3 hover:bg-indigo-50/50 transition"
+                    >
+                      <div className="min-w-0 flex-1 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-indigo-700">{o.codigo}</span>
+                          <Badge tone={otTone[o.estado]}>{ESTADO_OT_LABEL[o.estado]}</Badge>
+                          {o.registradoEnFinanzas ? (
+                            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                              ✓ En Finanzas
+                            </span>
+                          ) : (
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                              Pendiente Finanzas
+                            </span>
+                          )}
+                          {proy && (
+                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800">
+                              🚀 {proy.codigo}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 font-extrabold text-slate-900 truncate">{o.titulo}</div>
+                        <div className="mt-0.5 text-[11px] text-slate-500">
+                          Cliente: {emp ? `🏢 ${emp.razonSocial}` : `👤 ${cli?.nombre ?? 'Particular'}`} · Técnico: {tec?.nombre ?? 'Sin asignar'} · Fecha: {fmtFecha(o.fin || o.inicio)}
+                        </div>
+                        {o.serviciosRealizados && o.serviciosRealizados.length > 0 && (
+                          <div className="mt-1 text-[11px] text-slate-600 truncate">
+                            Servicios: {o.serviciosRealizados.map((s) => `${s.descripcion} (${s.cantidad || 1})`).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-black text-emerald-700">
+                          {fmtCLP(o.costoTotal || 0)}
+                        </div>
+                        <div className="text-[10px] font-bold text-indigo-600 hover:underline">
+                          Abrir Detalle →
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Selector de Categoría principal: Proyectos Web, Branding, Mantención */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5 border-b border-slate-200/80 pb-3">

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { cambiarEstadoOT, registrarIntervencion } from '@/lib/actions'
 import { ESTADOS_OT, ESTADO_OT_LABEL, ESTADOS_TAREA, ESTADO_TAREA_LABEL } from '@/lib/types'
-import type { Intervencion, Prioridad, Tarea } from '@/lib/types'
+import type { Intervencion, ItemOT, Prioridad, Tarea } from '@/lib/types'
 import {
   CHECKLIST_MANT, fmtCLP, fmtFecha, fmtFechaHora, nextId, today, addDays,
   TAREAS_MANTENCION, TAREAS_PROYECTO_WEB, TAREAS_SOFTWARE_MEDIDA, TAREAS_DISENO_BRANDING,
@@ -14,10 +14,15 @@ import { Avatar, Badge, Btn, Field, Modal, inputCls, prioTone } from './kit'
 
 export default function OTDrawer({ otId, onClose }: { otId: number | null; onClose: () => void }) {
   const { db, user, mutate } = useStore()
-  const [tab, setTab] = useState<'tareas' | 'calendario' | 'pago' | 'historial' | 'comentarios'>('tareas')
+  const [tab, setTab] = useState<'tareas' | 'servicios' | 'calendario' | 'pago' | 'historial' | 'comentarios'>('tareas')
   const [nuevaTarea, setNuevaTarea] = useState('')
   const [comentario, setComentario] = useState('')
   const [intervOpen, setIntervOpen] = useState(false)
+  const [servicioSel, setServicioSel] = useState<string>('')
+  const [customDesc, setCustomDesc] = useState<string>('')
+  const [customPrecio, setCustomPrecio] = useState<number>(0)
+  const [customCant, setCustomCant] = useState<number>(1)
+  const [feedbackFinanzas, setFeedbackFinanzas] = useState<string>('')
 
   const ot = db.ots.find((o) => o.id === otId)
   if (!ot || !user) return null
@@ -283,9 +288,40 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
             onChange={(e) => mutate((d) => { d.ots.find((o) => o.id === ot.id)!.total = Number(e.target.value) || 0 })}
           />
         </Field>
+        <Field label="🌐 Proyecto Web / Software">
+          <select
+            className={inputCls}
+            value={ot.proyectoId ?? ''}
+            disabled={!canManage}
+            onChange={(e) =>
+              mutate((d) => {
+                const target = d.ots.find((o) => o.id === ot.id)
+                if (target) {
+                  target.proyectoId = e.target.value ? Number(e.target.value) : undefined
+                }
+              })
+            }
+          >
+            <option value="">Sin Proyecto Asociado (General)</option>
+            {db.proyectosWeb?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.codigo} · {p.clienteNombre} - {p.nombreProyecto}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
+        {ot.proyectoId && proy && (
+          <Link
+            to="/app/proyectos"
+            className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-bold text-indigo-800 hover:bg-indigo-100"
+          >
+            <span>🌐 Proyecto:</span>
+            <span>{proy.codigo} · {proy.nombreProyecto}</span>
+          </Link>
+        )}
         {ot.equipoIds.map((id) => {
           const e = db.equipos.find((x) => x.id === id)
           return e ? (
@@ -298,13 +334,20 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
 
       <div className="mt-5 flex items-center justify-between border-b border-slate-200">
         <div className="flex flex-wrap gap-1">
-          {(['tareas', 'calendario', 'pago', 'historial', 'comentarios'] as const).map((t) => (
+          {(['tareas', 'servicios', 'calendario', 'pago', 'historial', 'comentarios'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium capitalize ${tab === t ? 'border-pcg-green text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
-              {t === 'pago' ? 'Pago y Factura' : t === 'calendario' ? '📅 Calendario y Tiempos' : t}{t === 'tareas' && ` (${hechas}/${tareas.length})`}
+              {t === 'servicios'
+                ? `💼 Servicios & Cobros (${(ot.serviciosRealizados ?? []).length})`
+                : t === 'pago'
+                  ? 'Pago y Factura'
+                  : t === 'calendario'
+                    ? '📅 Calendario y Tiempos'
+                    : t}
+              {t === 'tareas' && ` (${hechas}/${tareas.length})`}
             </button>
           ))}
         </div>
@@ -472,6 +515,309 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
               <Btn type="submit">+ Agregar al Planner</Btn>
             </form>
           )}
+        </div>
+      )}
+
+      {tab === 'servicios' && (
+        <div className="mt-4 space-y-4">
+          {/* Resumen Superior */}
+          <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Trabajos Realizados, Repuestos & Ganancias
+                </span>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900 font-mono">
+                    {fmtCLP(
+                      (ot.serviciosRealizados ?? []).reduce((acc, it) => acc + (it.subtotal || it.precioUnitario * it.cantidad), 0) || ot.total || 0
+                    )}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-700">
+                    ({(ot.serviciosRealizados ?? []).length} ítems en esta OT)
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 max-w-lg">
+                  Agrega servicios del Catálogo de Tarifas (ej. Cambio de Pantalla, Pasta Térmica, Formateo) o trabajos libres. Puedes manipular precios y cantidades directamente.
+                </p>
+              </div>
+
+              {/* Botón para Enviar a Finanzas */}
+              <div className="flex flex-wrap items-center gap-2">
+                {ot.registradoEnFinanzas ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs">
+                    <span>✓ Cobro registrado en Finanzas</span>
+                    <Link to="/app/finanzas" className="underline hover:text-emerald-950 font-black">
+                      Ver Libro de Caja →
+                    </Link>
+                  </div>
+                ) : (
+                  <Btn
+                    variant="primary"
+                    onClick={() => {
+                      const totalCobro =
+                        (ot.serviciosRealizados ?? []).reduce(
+                          (acc, it) => acc + (it.subtotal || it.precioUnitario * it.cantidad),
+                          0,
+                        ) || ot.total || 0
+
+                      if (totalCobro <= 0) {
+                        alert('El monto a registrar en Finanzas debe ser mayor a $0.')
+                        return
+                      }
+
+                      const resumen =
+                        (ot.serviciosRealizados ?? []).map((x) => `${x.cantidad}x ${x.descripcion}`).join(', ') ||
+                        ot.titulo
+
+                      mutate((d) => {
+                        const targetOt = d.ots.find((x) => x.id === ot.id)
+                        if (!targetOt) return
+                        targetOt.total = totalCobro
+                        targetOt.estadoPago = 'PAGADO'
+                        targetOt.registradoEnFinanzas = true
+
+                        const movId = nextId(d.movimientos)
+                        targetOt.movimientoFinanzasId = movId
+
+                        d.movimientos.push({
+                          id: movId,
+                          fecha: today(),
+                          tipo: 'INGRESO',
+                          rubro: 'INGRESO_OT',
+                          categoria: 'Cobro OT / Servicio Taller',
+                          concepto: `Cobro OT ${targetOt.codigo}: ${targetOt.titulo} (${resumen})`,
+                          contraparte: empresa?.razonSocial ?? cliente?.nombre ?? 'Cliente Particular',
+                          monto: totalCobro,
+                          metodo: 'TRANSFERENCIA',
+                          otId: targetOt.id,
+                        })
+                      })
+
+                      setFeedbackFinanzas(
+                        `¡Cobro de ${fmtCLP(totalCobro)} registrado con éxito en Finanzas / Libro de Caja!`,
+                      )
+                      setTimeout(() => setFeedbackFinanzas(''), 4500)
+                    }}
+                  >
+                    💰 Enviar Ganancia a Finanzas (+{fmtCLP((ot.serviciosRealizados ?? []).reduce((acc, it) => acc + (it.subtotal || it.precioUnitario * it.cantidad), 0) || ot.total || 0)})
+                  </Btn>
+                )}
+              </div>
+            </div>
+
+            {feedbackFinanzas && (
+              <div className="mt-3 rounded-xl border border-emerald-400 bg-emerald-100 p-2.5 text-center text-xs font-bold text-emerald-900">
+                {feedbackFinanzas}
+              </div>
+            )}
+          </div>
+
+          {/* Formulario para agregar servicio desde el Catálogo */}
+          {canWork && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-800">
+                  🛠️ Agregar Servicio desde el Catálogo o Trabajo Personalizado
+                </span>
+                <Link to="/app/catalogo" className="text-xs font-bold text-emerald-700 hover:underline">
+                  Administrar precios en Catálogo →
+                </Link>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-12 items-end">
+                <div className="sm:col-span-6">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                    Seleccionar del Catálogo de Servicios
+                  </label>
+                  <select
+                    className={inputCls}
+                    value={servicioSel}
+                    onChange={(e) => {
+                      const cod = e.target.value
+                      setServicioSel(cod)
+                      const serv = db.servicios?.find((s) => s.codigo === cod)
+                      if (serv) {
+                        setCustomDesc(serv.nombre)
+                        const p = ot.empresaId
+                          ? serv.tarifaEmpresa || (serv as any).tarifa_empresa || serv.normal
+                          : serv.tarifaCliente || (serv as any).tarifa_cliente || serv.normal
+                        setCustomPrecio(Number(p) || 0)
+                      }
+                    }}
+                  >
+                    <option value="">-- Elige un servicio del catálogo --</option>
+                    {db.servicios?.map((s) => {
+                      const p = ot.empresaId
+                        ? s.tarifaEmpresa || (s as any).tarifa_empresa || s.normal
+                        : s.tarifaCliente || (s as any).tarifa_cliente || s.normal
+                      return (
+                        <option key={s.id || s.codigo} value={s.codigo}>
+                          {s.nombre} · {fmtCLP(p)} ({ot.empresaId ? 'Tarifa Empresa' : 'Tarifa Particular'})
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Cantidad</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    value={customCant}
+                    onChange={(e) => setCustomCant(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Precio Unit. ($)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className={inputCls}
+                    value={customPrecio}
+                    onChange={(e) => setCustomPrecio(Number(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Btn
+                    className="w-full"
+                    variant="primary"
+                    disabled={!customDesc.trim()}
+                    onClick={() => {
+                      const sub = customCant * customPrecio
+                      const newItem: ItemOT = {
+                        id: `ITEM-${Date.now()}`,
+                        servicioCodigo: servicioSel || undefined,
+                        descripcion: customDesc.trim(),
+                        cantidad: customCant,
+                        precioUnitario: customPrecio,
+                        subtotal: sub,
+                      }
+                      mutate((d) => {
+                        const targetOt = d.ots.find((x) => x.id === ot.id)
+                        if (!targetOt) return
+                        const list = targetOt.serviciosRealizados ?? []
+                        list.push(newItem)
+                        targetOt.serviciosRealizados = list
+                        targetOt.total = list.reduce(
+                          (a, b) => a + (b.subtotal || b.precioUnitario * b.cantidad),
+                          0,
+                        )
+                      })
+                      setServicioSel('')
+                      setCustomDesc('')
+                      setCustomPrecio(0)
+                      setCustomCant(1)
+                    }}
+                  >
+                    + Agregar
+                  </Btn>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                  Descripción del trabajo o repuesto (editable):
+                </label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="Ej: Cambio de pantalla LED 14 pulgadas FHD, Pasta térmica Arctic MX-4, Reparación de bisagra..."
+                  value={customDesc}
+                  onChange={(e) => setCustomDesc(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Tabla de Trabajos Realizados */}
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700">
+              Detalle de Trabajos y Repuestos en esta OT
+            </div>
+
+            {(ot.serviciosRealizados ?? []).length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                No hay servicios ni repuestos agregados a esta OT aún.
+                <br />
+                Usa el formulario superior para añadir del catálogo o trabajos personalizados con su valor.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/50 text-[11px] font-extrabold uppercase text-slate-500 border-b border-slate-100">
+                  <tr>
+                    <th className="p-3">Trabajo / Servicio</th>
+                    <th className="p-3 text-center">Cant.</th>
+                    <th className="p-3 text-right">Precio Unit.</th>
+                    <th className="p-3 text-right">Subtotal</th>
+                    {canWork && <th className="p-3 text-center">✕</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {(ot.serviciosRealizados ?? []).map((it, idx) => (
+                    <tr key={it.id || idx} className="hover:bg-slate-50/60 transition">
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900">{it.descripcion}</div>
+                        {it.servicioCodigo && (
+                          <span className="font-mono text-[10px] text-slate-400">
+                            Código: {it.servicioCodigo}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-center font-bold">{it.cantidad}</td>
+                      <td className="p-3 text-right font-mono">{fmtCLP(it.precioUnitario)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-slate-900">
+                        {fmtCLP(it.subtotal || it.precioUnitario * it.cantidad)}
+                      </td>
+                      {canWork && (
+                        <td className="p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              mutate((d) => {
+                                const targetOt = d.ots.find((x) => x.id === ot.id)
+                                if (!targetOt) return
+                                const list = (targetOt.serviciosRealizados ?? []).filter((_, i) => i !== idx)
+                                targetOt.serviciosRealizados = list
+                                targetOt.total = list.reduce(
+                                  (a, b) => a + (b.subtotal || b.precioUnitario * b.cantidad),
+                                  0,
+                                )
+                              })
+                            }}
+                            className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                            title="Eliminar trabajo"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-black text-slate-900">
+                  <tr>
+                    <td colSpan={3} className="p-3 text-right text-xs uppercase tracking-wider">
+                      Total OT:
+                    </td>
+                    <td className="p-3 text-right text-sm text-emerald-700 font-mono">
+                      {fmtCLP(
+                        (ot.serviciosRealizados ?? []).reduce(
+                          (acc, it) => acc + (it.subtotal || it.precioUnitario * it.cantidad),
+                          0,
+                        ) || ot.total || 0,
+                      )}
+                    </td>
+                    {canWork && <td />}
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
         </div>
       )}
 

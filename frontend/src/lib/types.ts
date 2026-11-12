@@ -298,6 +298,17 @@ export const ESTADO_TAREA_LABEL: Record<Tarea['estado'], string> = {
   HECHA: 'Hecha',
 }
 
+export interface ItemOT {
+  id?: string
+  codigo?: string
+  servicioCodigo?: string
+  descripcion: string
+  cantidad: number
+  precioUnitario: number
+  subtotal?: number
+  total?: number
+}
+
 export interface OT {
   id: number
   codigo: string
@@ -320,6 +331,10 @@ export interface OT {
   direccionRetiro?: string
   equipoIds: number[]
   total: number
+  costoTotal?: number
+  serviciosRealizados?: ItemOT[]
+  registradoEnFinanzas?: boolean
+  movimientoFinanzasId?: number
   estadoPago: 'PENDIENTE' | 'VERIFICANDO' | 'PAGADO'
   comprobanteNombre?: string
   requiereFactura?: boolean
@@ -501,6 +516,8 @@ export type EstadoCobroProyecto = 'PAGADO' | 'ANTICIPO_50' | 'PENDIENTE' | 'EN_C
 
 export type EstadoProyectoWeb =
   | 'EN_DESARROLLO'
+  | 'EN_PROCESO'
+  | 'EN_ACTUALIZACION'
   | 'PRODUCCION_ACTIVO'
   | 'MANTENCION_ACTIVA'
   | 'PENDIENTE_RENOVACION'

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { useScope } from '@/lib/scope'
 import { ESPECIALIDAD_WORKER_META, ESTADOS_OT, ESTADO_OT_LABEL, ESTADO_TAREA_LABEL, getWorkerEspecialidad } from '@/lib/types'
+import { ESTADO_PROYECTO_WEB_META } from '@/lib/inventarioMeta'
 import { calcAlertas, fmtCLP, fmtFecha, semaforo, today } from '@/lib/util'
 import { otTone, ticketTone, cotTone, tareaTone } from '@/lib/tones'
 import AgendarHoraModal from '@/components/AgendarHoraModal'
@@ -559,6 +560,13 @@ function ClientDashboard() {
   const emp = db.empresas.find((e) => e.id === user!.empresaId)
   const porVencer = sc.equipos.filter((e) => e.proximaMantencion && semaforo(e).color !== 'green')
   const pend = sc.cotizaciones.filter((c) => c.estado === 'ENVIADA')
+
+  const misProyectos = (db.proyectosWeb ?? []).filter((p) => {
+    if (user!.empresaId && p.empresaId === user!.empresaId) return true
+    if (p.usuarioId === user!.id) return true
+    if (emp && p.clienteNombre?.toLowerCase().includes(emp.razonSocial.toLowerCase())) return true
+    return false
+  })
   return (
     <>
       <motion.div
@@ -605,6 +613,84 @@ function ClientDashboard() {
               <span className="font-semibold text-emerald-800">{fmtCLP(c.total)} · válida hasta {fmtFecha(c.validaHasta)} →</span>
             </Link>
           ))}
+        </Card>
+      )}
+
+      {misProyectos.length > 0 && (
+        <Card
+          className="mt-6"
+          title={`🚀 Mis Proyectos Web & Software Desarrollados con PCG (${misProyectos.length})`}
+          accent="emerald"
+          action={
+            <Link to="/app/tickets?nuevo=1" className="text-xs font-semibold text-emerald-700 hover:underline">
+              + Solicitar requerimiento / reunión →
+            </Link>
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {misProyectos.map((p) => {
+              const eMeta = ESTADO_PROYECTO_WEB_META[p.estado] ?? { label: p.estado, tone: 'green' }
+              const otsVinculadas = (db.ots ?? []).filter((o) => o.proyectoId === p.id)
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-mono text-xs font-black text-emerald-700">{p.codigo}</span>
+                      <h3 className="text-base font-extrabold text-slate-900 mt-0.5">{p.nombreProyecto}</h3>
+                    </div>
+                    <Badge tone={eMeta.tone}>{eMeta.label}</Badge>
+                  </div>
+
+                  {p.descripcion && (
+                    <p className="text-xs text-slate-600 line-clamp-2">{p.descripcion}</p>
+                  )}
+
+                  {p.urlDominio && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-900 px-3 py-1.5 text-xs text-white">
+                      <span className="truncate font-mono text-sky-300">{p.urlDominio}</span>
+                      <a
+                        href={p.urlDominio.startsWith('http') ? p.urlDominio : `https://${p.urlDominio}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/30"
+                      >
+                        Abrir ↗
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-2 text-xs">
+                    <span className="font-semibold text-slate-600">
+                      Órdenes de trabajo vinculadas: <b className="text-indigo-700">{otsVinculadas.length}</b>
+                    </span>
+                    {p.incluyeMantencionWeb && p.planMantencion !== 'SIN_MENSUALIDAD' && p.proximaMantencionWeb && (
+                      <span className="font-semibold text-emerald-700">
+                        Próx. mantención: {fmtFecha(p.proximaMantencionWeb)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                    <Link
+                      to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Agendar Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-indigo-700"
+                    >
+                      📅 Agendar Reunión sobre Proyecto
+                    </Link>
+                    <Link
+                      to="/app/proyectos"
+                      className="text-xs font-bold text-slate-600 hover:text-emerald-700"
+                    >
+                      Ver Ficha del Proyecto →
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </Card>
       )}
       <div className="mt-6 grid gap-6 xl:grid-cols-2">

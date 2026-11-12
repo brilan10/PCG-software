@@ -76,6 +76,7 @@ export default function App() {
             </AccessGuard>
           }
         />
+        <Route path="ots" element={<Navigate to="/app/ot" replace />} />
 
         {/* Equipos de Hardware (Técnicos, Admins y Clientes) */}
         <Route
