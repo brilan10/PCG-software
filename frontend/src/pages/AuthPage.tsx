@@ -21,6 +21,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'registro' }) {
   const [ciudad, setCiudad] = useState('Santiago')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [err, setErr] = useState('')
   const [cargando, setCargando] = useState(false)
 
@@ -148,15 +149,36 @@ export default function AuthPage({ mode }: { mode: 'login' | 'registro' }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-300">Contraseña</label>
-            <input
-              className={field}
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-300">Contraseña</label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 transition"
+              >
+                {showPassword ? '🙈 Ocultar' : '👁️ Mostrar contraseña'}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                className={field}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Contraseña (pcg123)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Clave por defecto: <code className="text-emerald-400 font-mono">pcg123</code></span>
+              <button
+                type="button"
+                onClick={() => setPassword('pcg123')}
+                className="text-emerald-400 hover:underline"
+              >
+                Autocompletar
+              </button>
+            </div>
           </div>
 
           {err && (
