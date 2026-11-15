@@ -34,6 +34,8 @@ try {
                 'aptoDesarrollador' => isset($r['apto_desarrollador']) ? (bool)$r['apto_desarrollador'] : false,
                 'rut' => $r['rut'] ?? null,
                 'telefono' => $r['telefono'] ?? null,
+                'direccion' => $r['direccion'] ?? null,
+                'ciudad' => $r['ciudad'] ?? null,
                 'activo' => (bool)$r['activo'],
                 'empresaId' => $r['empresa_id'] !== null ? (int)$r['empresa_id'] : null,
                 'cargo' => $r['cargo'] ?? null,
@@ -517,7 +519,7 @@ try {
         // 1. Usuarios si viene
         if (isset($data['usuarios']) && is_array($data['usuarios'])) {
             $pdo->exec("DELETE FROM usuarios WHERE 1=1");
-            $st = $pdo->prepare("INSERT INTO usuarios (id, nombre, email, password, rol, rol_etiqueta, especialidad, apto_tecnico, apto_desarrollador, rut, telefono, activo, empresa_id, cargo, titulo, horas_semanales, color) VALUES (:id, :nombre, :email, :password, :rol, :rol_etiqueta, :especialidad, :apto_tecnico, :apto_desarrollador, :rut, :telefono, :activo, :empresa_id, :cargo, :titulo, :horas_semanales, :color)");
+            $st = $pdo->prepare("INSERT INTO usuarios (id, nombre, email, password, rol, rol_etiqueta, especialidad, apto_tecnico, apto_desarrollador, rut, telefono, direccion, ciudad, activo, empresa_id, cargo, titulo, horas_semanales, color) VALUES (:id, :nombre, :email, :password, :rol, :rol_etiqueta, :especialidad, :apto_tecnico, :apto_desarrollador, :rut, :telefono, :direccion, :ciudad, :activo, :empresa_id, :cargo, :titulo, :horas_semanales, :color)");
             foreach ($data['usuarios'] as $u) {
                 $rawPass = $u['password'] ?? 'pcg123';
                 // Si la contraseña no está ya hasheada con bcrypt ($2y$, $2a$, $2b$), la hasheamos
@@ -538,6 +540,8 @@ try {
                     ':apto_desarrollador' => (isset($u['aptoDesarrollador']) ? $u['aptoDesarrollador'] : false) ? 1 : 0,
                     ':rut' => $u['rut'] ?? null,
                     ':telefono' => $u['telefono'] ?? null,
+                    ':direccion' => $u['direccion'] ?? null,
+                    ':ciudad' => $u['ciudad'] ?? null,
                     ':activo' => ($u['activo'] ?? true) ? 1 : 0,
                     ':empresa_id' => $u['empresaId'] ?? null,
                     ':cargo' => $u['cargo'] ?? null,

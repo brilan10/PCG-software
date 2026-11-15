@@ -13,7 +13,7 @@ DROP TABLE IF EXISTS usuarios;
 CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
-    email VARCHAR(150) UNIQUE NOT NULL,
+    email VARCHAR(150) NOT NULL,
     password VARCHAR(255) NOT NULL,
     rol ENUM('ADMIN', 'DOC_PROCESS', 'WORKER', 'CLIENTE_PERSONA', 'CLIENTE_EMPRESA') NOT NULL,
     rol_etiqueta VARCHAR(100) NULL,
@@ -27,8 +27,11 @@ CREATE TABLE usuarios (
     empresa_id INT NULL,
     rut VARCHAR(20) NULL,
     telefono VARCHAR(30) NULL,
+    direccion VARCHAR(255) NULL,
+    ciudad VARCHAR(100) NULL,
     activo TINYINT(1) DEFAULT 1,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_usuarios_email (email),
     INDEX idx_usuarios_rol (rol),
     INDEX idx_usuarios_empresa (empresa_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -38,7 +41,7 @@ DROP TABLE IF EXISTS empresas;
 CREATE TABLE empresas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     razon_social VARCHAR(200) NOT NULL,
-    rut VARCHAR(20) UNIQUE NOT NULL,
+    rut VARCHAR(20) NOT NULL,
     giro VARCHAR(200) NULL,
     ciudad VARCHAR(100) DEFAULT 'Santiago',
     direccion VARCHAR(255) NULL,

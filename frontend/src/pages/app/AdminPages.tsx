@@ -26,6 +26,7 @@ const TIPOS_RESUMEN: TipoHw[] = ['DESKTOP', 'LAPTOP', 'SERVIDOR', 'IMPRESORA', '
 export function EmpresasPage() {
   const { db, mutate } = useStore()
   const [tab, setTab] = useState<'bento' | 'cartera' | 'b2b'>('bento')
+  const [filtroTipoCartera, setFiltroTipoCartera] = useState<'TODOS' | 'EMPRESA' | 'PERSONA'>('TODOS')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [addEquipoEmpresaId, setAddEquipoEmpresaId] = useState<number | null>(null)
@@ -46,19 +47,34 @@ export function EmpresasPage() {
   const clientesCartera = db.usuarios.filter(
     (u) => u.rol === 'CLIENTE_EMPRESA' || u.rol === 'CLIENTE_PERSONA',
   )
+  const empresasCount = clientesCartera.filter((u) => u.rol === 'CLIENTE_EMPRESA' || u.empresaId !== undefined).length
+  const personasCount = clientesCartera.length - empresasCount
+
+  const normRut = (r: string) => r.replace(/[^0-9kK]/g, '').toLowerCase()
 
   const clientesFiltrados = clientesCartera.filter((u) => {
+    const esEmpresa = u.rol === 'CLIENTE_EMPRESA' || u.empresaId !== undefined
+    if (filtroTipoCartera === 'EMPRESA' && !esEmpresa) return false
+    if (filtroTipoCartera === 'PERSONA' && esEmpresa) return false
+
     if (!q.trim()) return true
     const emp = db.empresas.find((e) => e.id === u.empresaId)
+    const term = q.toLowerCase()
+    const termRut = normRut(q)
     const haystack = `${u.nombre} ${u.email} ${u.rut ?? ''} ${u.telefono ?? ''} ${emp?.razonSocial ?? ''} ${emp?.rut ?? ''} ${emp?.ciudad ?? ''}`.toLowerCase()
-    return haystack.includes(q.toLowerCase())
+    const rutMatch =
+      termRut.length >= 2 &&
+      (normRut(u.rut ?? '').includes(termRut) || normRut(emp?.rut ?? '').includes(termRut))
+    return haystack.includes(term) || rutMatch
   })
 
-  const empresasFiltradas = db.empresas.filter(
-    (em) =>
-      !q.trim() ||
-      `${em.razonSocial} ${em.rut} ${em.ciudad} ${em.giro}`.toLowerCase().includes(q.toLowerCase()),
-  )
+  const empresasFiltradas = db.empresas.filter((em) => {
+    if (!q.trim()) return true
+    const term = q.toLowerCase()
+    const termRut = normRut(q)
+    const rutMatch = termRut.length >= 2 && normRut(em.rut).includes(termRut)
+    return `${em.razonSocial} ${em.rut} ${em.ciudad} ${em.giro}`.toLowerCase().includes(term) || rutMatch
+  })
 
   return (
     <>
@@ -153,12 +169,54 @@ export function EmpresasPage() {
           ]}
         />
 
-        <input
-          className={`${inputCls} !w-72`}
-          placeholder="Buscar por RUT, correo, empresa o contacto…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {tab === 'cartera' && (
+            <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setFiltroTipoCartera('TODOS')}
+                className={cx(
+                  'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                  filtroTipoCartera === 'TODOS'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                Todos ({clientesCartera.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroTipoCartera('EMPRESA')}
+                className={cx(
+                  'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                  filtroTipoCartera === 'EMPRESA'
+                    ? 'bg-violet-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                🏢 Empresas B2B ({empresasCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroTipoCartera('PERSONA')}
+                className={cx(
+                  'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                  filtroTipoCartera === 'PERSONA'
+                    ? 'bg-sky-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                👤 Particulares ({personasCount})
+              </button>
+            </div>
+          )}
+          <input
+            className={`${inputCls} !w-72`}
+            placeholder="Buscar por RUT, correo, empresa o contacto…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
       </div>
 
       <AnimatePresence mode="wait">

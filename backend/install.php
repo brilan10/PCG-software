@@ -58,8 +58,8 @@ try {
 
     // 1. Usuarios
     $stmtUser = $pdo->prepare("
-        INSERT INTO usuarios (id, nombre, email, password, rol, rol_etiqueta, cargo, titulo, horas_semanales, color, empresa_id, rut, telefono, activo)
-        VALUES (:id, :nombre, :email, :password, :rol, :rol_etiqueta, :cargo, :titulo, :horas_semanales, :color, :empresa_id, :rut, :telefono, :activo)
+        INSERT INTO usuarios (id, nombre, email, password, rol, rol_etiqueta, cargo, titulo, horas_semanales, color, empresa_id, rut, telefono, direccion, ciudad, activo)
+        VALUES (:id, :nombre, :email, :password, :rol, :rol_etiqueta, :cargo, :titulo, :horas_semanales, :color, :empresa_id, :rut, :telefono, :direccion, :ciudad, :activo)
     ");
     foreach ($seed['usuarios'] ?? [] as $u) {
         $rawPass = $u['password'] ?? 'pcg123';
@@ -78,6 +78,8 @@ try {
             ':empresa_id' => $u['empresaId'] ?? null,
             ':rut' => $u['rut'] ?? null,
             ':telefono' => $u['telefono'] ?? null,
+            ':direccion' => $u['direccion'] ?? null,
+            ':ciudad' => $u['ciudad'] ?? null,
             ':activo' => ($u['activo'] ?? true) ? 1 : 0,
         ]);
     }

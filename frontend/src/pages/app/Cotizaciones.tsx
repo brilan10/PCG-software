@@ -154,12 +154,12 @@ function NuevaCotModal({
     tipoCliente: defaultCli?.rol === 'CLIENTE_PERSONA' ? 'PERSONA' : 'EMPRESA',
     razonSocial: defaultEmp?.razonSocial ?? defaultCli?.nombre ?? '',
     rut: defaultEmp?.rut ?? defaultCli?.rut ?? '',
-    giro: defaultEmp?.giro ?? 'Servicios TI / General',
-    ciudad: defaultEmp?.ciudad ?? 'Santiago',
-    direccion: defaultEmp?.direccion ?? '',
+    giro: defaultEmp?.giro ?? (defaultEmp ? 'Servicios TI / General' : 'Particular'),
+    ciudad: defaultEmp?.ciudad ?? defaultCli?.ciudad ?? 'Santiago',
+    direccion: defaultEmp?.direccion ?? defaultCli?.direccion ?? '',
     nombreContacto: defaultCli?.nombre ?? '',
     email: defaultCli?.email ?? '',
-    telefono: defaultCli?.telefono ?? '+56 9 ',
+    telefono: defaultCli?.telefono ?? '+56 9 3029 0082',
     inscribirAlertas: true,
   }))
 
@@ -217,6 +217,23 @@ function NuevaCotModal({
     setItems((prev) => prev.map((it) => ({ ...it, cantidad: val })))
   }
 
+  const handleClienteChange = (next: DatosClienteForm) => {
+    const prevTipo = clienteForm.tipoCliente
+    setClienteForm(next)
+    if (next.tipoCliente !== prevTipo) {
+      const isPersona = next.tipoCliente === 'PERSONA'
+      setItems((prev) =>
+        prev.map((it) => {
+          if (!it.servicioId) return it
+          const s = db.servicios.find((x) => x.id === it.servicioId)
+          if (!s) return it
+          const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
+          return { ...it, normal: baseNormal }
+        }),
+      )
+    }
+  }
+
   const totals = calcCot(db, items, cant, modo, { pct: dctoPct, monto: dctoMonto })
   const pct = totals.subtotalNormal > 0 ? ((totals.descuentoMonto / totals.subtotalNormal) * 100).toFixed(1) : '0'
   const costoInterno = items.reduce((s, i) => {
@@ -255,7 +272,7 @@ function NuevaCotModal({
         {/* Selector de Cartera de Clientes + Validación y Auto-registro en BD */}
         <SelectorCarteraCliente
           value={clienteForm}
-          onChange={setClienteForm}
+          onChange={handleClienteChange}
           showEmailToggle
           enviarAlCrear={enviarAlCrear}
           onToggleEnviar={setEnviarAlCrear}
