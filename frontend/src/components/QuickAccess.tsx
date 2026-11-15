@@ -25,6 +25,8 @@ export default function QuickAccess() {
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [errorAuth, setErrorAuth] = useState('')
   const [showClaveAyuda, setShowClaveAyuda] = useState(false)
+  const [pasoConfirmacion, setPasoConfirmacion] = useState(false)
+  const [showPass, setShowPass] = useState(false)
   const [razonSocial, setRazonSocial] = useState('')
   const [direccion, setDireccion] = useState('')
   const [comuna, setComuna] = useState('Santiago')
@@ -215,36 +217,41 @@ export default function QuickAccess() {
             <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
-                  {modalMode === 'HORA_NATURAL' ? '📅 Reserva Directa de Hora · PCG SPA' : '✉ Solicitud Directa de Ticket / Cotización'}
+                  {pasoConfirmacion
+                    ? '🔒 Paso Final · Autenticación de Cuenta'
+                    : modalMode === 'HORA_NATURAL'
+                      ? '📅 Reserva Directa de Hora · PCG SPA'
+                      : '✉ Solicitud Directa de Ticket / Cotización'}
                 </span>
                 <h3 className="mt-1 text-lg font-bold text-white">
-                  {modalMode === 'HORA_NATURAL'
-                    ? 'Agendar Hora de Mantención (Persona Natural o Empresa)'
-                    : 'Solicitar Ticket o Cotización Formal'}
+                  {pasoConfirmacion
+                    ? 'Confirmar Cita y Acceso a tu Portal'
+                    : modalMode === 'HORA_NATURAL'
+                      ? 'Agendar Hora de Mantención (Persona Natural o Empresa)'
+                      : 'Solicitar Ticket o Cotización Formal'}
                 </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setModalMode(null)}
+                onClick={() => {
+                  setModalMode(null)
+                  setPasoConfirmacion(false)
+                  setErrorAuth('')
+                }}
                 className="rounded-lg bg-white/10 px-2.5 py-1 text-sm text-slate-300 hover:bg-white/20"
               >
                 ✕
               </button>
             </div>
 
-            <form
-              className="space-y-4"
-              onSubmit={async (e) => {
-                e.preventDefault()
-                setErrorAuth('')
+            {pasoConfirmacion && !user ? (
+              /* PASO 2: Confirmación de Cuenta y Contraseña al presionar el botón verde */
+              <form
+                className="space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setErrorAuth('')
 
-                if (modalMode === 'HORA_NATURAL' && modalidad === 'DOMICILIO' && !direccion.trim()) {
-                  alert('Por favor indica la dirección para el retiro a domicilio.')
-                  return
-                }
-
-                // Validación de credenciales para usuarios no autenticados
-                if (!user) {
                   if (clienteExistente) {
                     const passInput = password.trim()
                     if (!passInput) {
@@ -280,69 +287,318 @@ export default function QuickAccess() {
                       return
                     }
                   }
-                }
 
-                let targetUid = 0
-                let createdOtId = 0
-                mutate((d) => {
-                  const dirTexto =
-                    modalidad === 'DOMICILIO' && direccion.trim()
-                      ? `${direccion.trim()}, ${comuna.trim() || 'Santiago'}${referenciaDomicilio.trim() ? ` (Ref: ${referenciaDomicilio.trim()})` : ''}`
-                      : undefined
+                  // Proceder con la creación de la OT e inicio de sesión
+                  let targetUid = 0
+                  let createdOtId = 0
+                  mutate((d) => {
+                    const dirTexto =
+                      modalidad === 'DOMICILIO' && direccion.trim()
+                        ? `${direccion.trim()}, ${comuna.trim() || 'Santiago'}${referenciaDomicilio.trim() ? ` (Ref: ${referenciaDomicilio.trim()})` : ''}`
+                        : undefined
 
-                  const res = resolverORegistrarCliente(d, {
-                    modo: 'VALIDAR_O_NUEVO',
-                    tipoCliente,
-                    nombreContacto: nombre.trim(),
-                    email: email.trim(),
-                    telefono: telefono.trim(),
-                    rut: rut.trim(),
-                    password: password.trim() || 'pcg123',
-                    razonSocial: tipoCliente === 'EMPRESA' ? razonSocial.trim() || nombre.trim() : undefined,
-                    giro: tipoCliente === 'EMPRESA' ? 'Servicios / Empresa' : undefined,
-                    ciudad: modalidad === 'DOMICILIO' && comuna.trim() ? comuna.trim() : ciudad,
-                    direccion: dirTexto || ciudad,
-                    inscribirAlertas: true,
+                    const res = resolverORegistrarCliente(d, {
+                      modo: 'VALIDAR_O_NUEVO',
+                      tipoCliente,
+                      nombreContacto: nombre.trim(),
+                      email: email.trim(),
+                      telefono: telefono.trim(),
+                      rut: rut.trim(),
+                      password: password.trim() || 'pcg123',
+                      razonSocial: tipoCliente === 'EMPRESA' ? razonSocial.trim() || nombre.trim() : undefined,
+                      giro: tipoCliente === 'EMPRESA' ? 'Servicios / Empresa' : undefined,
+                      ciudad: modalidad === 'DOMICILIO' && comuna.trim() ? comuna.trim() : ciudad,
+                      direccion: dirTexto || ciudad,
+                      inscribirAlertas: true,
+                    })
+                    targetUid = res.usuarioId
+
+                    if (modalMode === 'HORA_NATURAL') {
+                      const r = agendarHoraMantencion(d, {
+                        usuarioId: res.usuarioId,
+                        empresaId: res.empresaId,
+                        fechaCita,
+                        horaCita,
+                        modalidadAtencion: modalidad,
+                        direccionRetiro: dirTexto,
+                        tituloServicio: planActual.titulo,
+                        montoEstimado: planActual.precio,
+                        nuevoEquipo: {
+                          tipo: tipoHw,
+                          marca: marca.trim() || 'Notebook / PC',
+                          modelo: modelo.trim() || 'Personal',
+                        },
+                        sintomasOComentarios: comentarios.trim() || undefined,
+                        creadoPor: res.usuarioId,
+                      })
+                      createdOtId = r.ot.id
+                    } else {
+                      const cliObj = d.usuarios.find((u) => u.id === res.usuarioId)!
+                      crearTicket(d, cliObj, {
+                        tipo: 'COTIZACION',
+                        asunto: `Solicitud de ${planActual.titulo} (${TIPO_HW_META[tipoHw].short})`,
+                        descripcion: `${comentarios.trim() || 'Solicitud ingresada desde portal web.'}\nEquipo indicado: ${TIPO_HW_META[tipoHw].label} ${marca} ${modelo}.`,
+                        equipoIds: [],
+                        cantEquipos: 1,
+                      })
+                    }
                   })
-                  targetUid = res.usuarioId
-
-                  if (modalMode === 'HORA_NATURAL') {
-                    const r = agendarHoraMantencion(d, {
-                      usuarioId: res.usuarioId,
-                      empresaId: res.empresaId,
-                      fechaCita,
-                      horaCita,
-                      modalidadAtencion: modalidad,
-                      direccionRetiro: dirTexto,
-                      tituloServicio: planActual.titulo,
-                      montoEstimado: planActual.precio,
-                      nuevoEquipo: {
-                        tipo: tipoHw,
-                        marca: marca.trim() || 'Notebook / PC',
-                        modelo: modelo.trim() || 'Personal',
-                      },
-                      sintomasOComentarios: comentarios.trim() || undefined,
-                      creadoPor: res.usuarioId,
-                    })
-                    createdOtId = r.ot.id
-                  } else {
-                    const cliObj = d.usuarios.find((u) => u.id === res.usuarioId)!
-                    crearTicket(d, cliObj, {
-                      tipo: 'COTIZACION',
-                      asunto: `Solicitud de ${ planActual.titulo } (${TIPO_HW_META[tipoHw].short})`,
-                      descripcion: `${comentarios.trim() || 'Solicitud ingresada desde portal web.'}\nEquipo indicado: ${TIPO_HW_META[tipoHw].label} ${marca} ${modelo}.`,
-                      equipoIds: [],
-                      cantEquipos: 1,
-                    })
+                  setModalMode(null)
+                  setPasoConfirmacion(false)
+                  if (targetUid) {
+                    loginAs(targetUid)
+                    nav(createdOtId ? `/app/ot?ot=${createdOtId}` : '/app/tickets')
                   }
-                })
-                setModalMode(null)
-                if (targetUid) {
-                  loginAs(targetUid)
-                  nav(createdOtId ? `/app/ot?ot=${createdOtId}` : '/app/tickets')
-                }
-              }}
-            >
+                }}
+              >
+                {/* Resumen de la Orden */}
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-white">{planActual.titulo}</span>
+                    <span className="text-sm font-extrabold text-emerald-400">{fmtCLP(planActual.precio)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-300">
+                    <span>📅 {fmtFecha(fechaCita)} a las {horaCita} hrs</span>
+                    <span>{modalidad === 'DOMICILIO' ? '🚗 Retiro a Domicilio' : '🏢 Entrega en Laboratorio PCG'}</span>
+                    <span>💻 {marca || 'Equipo'} {modelo}</span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2 text-xs text-slate-400">
+                    👤 <strong>Titular:</strong> {nombre} ({rut}) · {email}
+                  </div>
+                  {modalidad === 'DOMICILIO' && (
+                    <div className="text-xs text-emerald-300">
+                      📍 <strong>Dirección:</strong> {direccion}, {comuna} {referenciaDomicilio ? `(Ref: ${referenciaDomicilio})` : ''}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bloque de Acceso / Contraseña */}
+                <div className="rounded-2xl border border-white/15 bg-slate-950/85 p-5 space-y-3">
+                  {clienteExistente ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">👋</span>
+                          <div>
+                            <div className="text-sm font-black text-emerald-300">
+                              ¡Hola de nuevo, {clienteExistente.nombre}!
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Tu cuenta ya está registrada en PCG SPA ({clienteExistente.email}).
+                            </div>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                          Cuenta existente
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-200">
+                            Ingresa tu contraseña para confirmar la cita y acceder a tu portal: *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPass(!showPass)}
+                            className="text-[11px] text-slate-400 hover:text-white"
+                          >
+                            {showPass ? '🙈 Ocultar' : '👁️ Mostrar'}
+                          </button>
+                        </div>
+                        <input
+                          type={showPass ? 'text' : 'password'}
+                          className="w-full rounded-xl border border-white/20 bg-slate-800 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:border-emerald-400 focus:outline-none"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value)
+                            setErrorAuth('')
+                          }}
+                          placeholder="Tu contraseña de acceso"
+                          autoFocus
+                          required
+                        />
+                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Acceso seguro a tu portal</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowClaveAyuda(!showClaveAyuda)}
+                            className="text-emerald-400 hover:text-emerald-300 transition underline underline-offset-2"
+                          >
+                            ¿Primera vez o no recuerdas tu clave?
+                          </button>
+                        </div>
+                        {showClaveAyuda && (
+                          <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/70 p-2.5 text-xs text-emerald-200">
+                            💡 Si es tu primera vez agendando o aún no la cambias, tu clave temporal por defecto es <strong className="text-white font-mono bg-emerald-900/80 px-1 py-0.5 rounded">pcg123</strong>. Podrás cambiarla una vez dentro de tu portal.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🔐</span>
+                          <div>
+                            <div className="text-sm font-black text-indigo-300">
+                              Crea tu contraseña para tu nuevo Portal de Cliente
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Podrás ingresar en cualquier momento a ver el avance en vivo de tu equipo, informes técnicos y boletas.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300">
+                          Nuevo cliente
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">
+                            Crea tu contraseña *
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none"
+                            value={password}
+                            onChange={(e) => {
+                              setPassword(e.target.value)
+                              setErrorAuth('')
+                            }}
+                            placeholder="Mínimo 4 caracteres (ej: pcg123)"
+                            autoFocus
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">
+                            Confirma tu contraseña *
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none"
+                            value={passwordConfirm}
+                            onChange={(e) => {
+                              setPasswordConfirm(e.target.value)
+                              setErrorAuth('')
+                            }}
+                            placeholder="Repite tu contraseña"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {errorAuth && (
+                  <div className="rounded-xl border border-rose-500/50 bg-rose-950/70 p-3 text-xs font-bold text-rose-200">
+                    ⚠️ {errorAuth}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasoConfirmacion(false)
+                      setErrorAuth('')
+                    }}
+                    className="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
+                  >
+                    ← Modificar datos de la cita
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-emerald-500"
+                  >
+                    ✓ Confirmar Hora y Abrir Mi Portal
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* PASO 1: Formulario General de Datos de Mantención */
+              <form
+                className="space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setErrorAuth('')
+
+                  if (modalMode === 'HORA_NATURAL' && modalidad === 'DOMICILIO' && !direccion.trim()) {
+                    alert('Por favor indica la dirección para el retiro a domicilio.')
+                    return
+                  }
+
+                  // Si el usuario no ha iniciado sesión, pasar al paso final de confirmación de cuenta
+                  if (!user) {
+                    setPasoConfirmacion(true)
+                    return
+                  }
+
+                  // Si ya tiene sesión iniciada, crear la OT inmediatamente
+                  let targetUid = 0
+                  let createdOtId = 0
+                  mutate((d) => {
+                    const dirTexto =
+                      modalidad === 'DOMICILIO' && direccion.trim()
+                        ? `${direccion.trim()}, ${comuna.trim() || 'Santiago'}${referenciaDomicilio.trim() ? ` (Ref: ${referenciaDomicilio.trim()})` : ''}`
+                        : undefined
+
+                    const res = resolverORegistrarCliente(d, {
+                      modo: 'VALIDAR_O_NUEVO',
+                      tipoCliente,
+                      nombreContacto: nombre.trim(),
+                      email: email.trim(),
+                      telefono: telefono.trim(),
+                      rut: rut.trim(),
+                      password: password.trim() || 'pcg123',
+                      razonSocial: tipoCliente === 'EMPRESA' ? razonSocial.trim() || nombre.trim() : undefined,
+                      giro: tipoCliente === 'EMPRESA' ? 'Servicios / Empresa' : undefined,
+                      ciudad: modalidad === 'DOMICILIO' && comuna.trim() ? comuna.trim() : ciudad,
+                      direccion: dirTexto || ciudad,
+                      inscribirAlertas: true,
+                    })
+                    targetUid = res.usuarioId
+
+                    if (modalMode === 'HORA_NATURAL') {
+                      const r = agendarHoraMantencion(d, {
+                        usuarioId: res.usuarioId,
+                        empresaId: res.empresaId,
+                        fechaCita,
+                        horaCita,
+                        modalidadAtencion: modalidad,
+                        direccionRetiro: dirTexto,
+                        tituloServicio: planActual.titulo,
+                        montoEstimado: planActual.precio,
+                        nuevoEquipo: {
+                          tipo: tipoHw,
+                          marca: marca.trim() || 'Notebook / PC',
+                          modelo: modelo.trim() || 'Personal',
+                        },
+                        sintomasOComentarios: comentarios.trim() || undefined,
+                        creadoPor: res.usuarioId,
+                      })
+                      createdOtId = r.ot.id
+                    } else {
+                      const cliObj = d.usuarios.find((u) => u.id === res.usuarioId)!
+                      crearTicket(d, cliObj, {
+                        tipo: 'COTIZACION',
+                        asunto: `Solicitud de ${planActual.titulo} (${TIPO_HW_META[tipoHw].short})`,
+                        descripcion: `${comentarios.trim() || 'Solicitud ingresada desde portal web.'}\nEquipo indicado: ${TIPO_HW_META[tipoHw].label} ${marca} ${modelo}.`,
+                        equipoIds: [],
+                        cantEquipos: 1,
+                      })
+                    }
+                  })
+                  setModalMode(null)
+                  if (targetUid) {
+                    loginAs(targetUid)
+                    nav(createdOtId ? `/app/ot?ot=${createdOtId}` : '/app/tickets')
+                  }
+                }}
+              >
               {/* Selector Persona Natural vs Empresa */}
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1 text-xs">
                 <button
@@ -620,123 +876,6 @@ export default function QuickAccess() {
                 />
               </div>
 
-              {/* Validación de Cuenta Existente o Creación de Contraseña para el Portal */}
-              {!user && (
-                <div className="rounded-2xl border p-4 transition-all duration-300 bg-slate-950/80 border-white/15">
-                  {clienteExistente ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">👋</span>
-                          <div>
-                            <div className="text-sm font-black text-emerald-300">
-                              ¡Hola de nuevo, {clienteExistente.nombre}!
-                            </div>
-                            <div className="text-xs text-slate-300">
-                              Tu cuenta ya está registrada en PCG SPA ({clienteExistente.email}).
-                            </div>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
-                          Cuenta existente
-                        </span>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-200">
-                          Ingresa tu contraseña para confirmar la cita y acceder a tu portal: *
-                        </label>
-                        <input
-                          type="password"
-                          className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-emerald-400 focus:outline-none"
-                          value={password}
-                          onChange={(e) => {
-                            setPassword(e.target.value)
-                            setErrorAuth('')
-                          }}
-                          placeholder="Tu contraseña de acceso"
-                          required
-                        />
-                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-                          <span>Acceso seguro a tu portal</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowClaveAyuda(!showClaveAyuda)}
-                            className="text-emerald-400 hover:text-emerald-300 transition underline underline-offset-2"
-                          >
-                            ¿Primera vez o no recuerdas tu clave?
-                          </button>
-                        </div>
-                        {showClaveAyuda && (
-                          <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/70 p-2.5 text-xs text-emerald-200">
-                            💡 Si es tu primera vez agendando o aún no la cambias, tu clave temporal por defecto es <strong className="text-white font-mono bg-emerald-900/80 px-1 py-0.5 rounded">pcg123</strong>. Podrás cambiarla una vez dentro de tu portal.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">🔐</span>
-                          <div>
-                            <div className="text-sm font-black text-indigo-300">
-                              Crea tu contraseña para tu nuevo Portal de Cliente
-                            </div>
-                            <div className="text-xs text-slate-300">
-                              Podrás ingresar en cualquier momento a ver el avance en vivo de tu equipo, informes técnicos y boletas.
-                            </div>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300">
-                          Nuevo cliente
-                        </span>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-slate-300">
-                            Crea tu contraseña *
-                          </label>
-                          <input
-                            type="password"
-                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
-                            value={password}
-                            onChange={(e) => {
-                              setPassword(e.target.value)
-                              setErrorAuth('')
-                            }}
-                            placeholder="Mínimo 4 caracteres (ej: pcg123)"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold text-slate-300">
-                            Confirma tu contraseña *
-                          </label>
-                          <input
-                            type="password"
-                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
-                            value={passwordConfirm}
-                            onChange={(e) => {
-                              setPasswordConfirm(e.target.value)
-                              setErrorAuth('')
-                            }}
-                            placeholder="Repite tu contraseña"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {errorAuth && (
-                <div className="rounded-xl border border-rose-500/50 bg-rose-950/70 p-3 text-xs font-bold text-rose-200">
-                  ⚠️ {errorAuth}
-                </div>
-              )}
-
               <div className="flex items-center justify-between border-t border-white/10 pt-3">
                 <span className="text-xs text-slate-400">
                   Quedarás registrado en la Cartera de Clientes de {db.config.razonSocial}.
@@ -758,8 +897,9 @@ export default function QuickAccess() {
                 </div>
               </div>
             </form>
-          </div>
+          )}
         </div>
+      </div>
       )}
     </section>
   )

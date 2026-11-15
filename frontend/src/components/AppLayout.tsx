@@ -281,9 +281,9 @@ export default function AppLayout() {
                   />
                 </label>
                 <button
-                  onClick={() => confirm('¿Restablecer todos los datos demo?') && reset()}
+                  onClick={() => confirm('¿Restablecer la base de datos inicial?') && reset()}
                   className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-slate-400 transition hover:bg-white/10 hover:text-white"
-                  title="Restablecer datos demo"
+                  title="Restablecer base de datos inicial"
                 >
                   ↺
                 </button>
@@ -324,11 +324,11 @@ export default function AppLayout() {
               <span
                 onClick={() => syncWithMySQL()}
                 className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-500/30 transition hover:bg-amber-500/25"
-                title="Modo local activo (Haz clic para reintentar conectar a MySQL)"
+                title="Modo local (Haz clic para conectar a MySQL)"
               >
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
-                <span>Modo Local / Caché</span>
-                <span className="hidden text-[10px] text-amber-700 md:inline">· Clic para conectar XAMPP</span>
+                <span>Modo Local</span>
+                <span className="hidden text-[10px] text-amber-700 md:inline">· Clic para conectar</span>
               </span>
             )}
             {backendStatus === 'error' && (

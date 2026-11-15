@@ -53,7 +53,7 @@ export default function Hero() {
               className="border-slate-900/30 bg-white/75 text-slate-900 hover:bg-white"
               render={<Link to="/login" />}
             >
-              Entrar al Dashboard Demo
+              Entrar al Portal Corporativo
             </Button>
           </div>
         </div>
