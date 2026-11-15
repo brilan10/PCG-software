@@ -18,6 +18,7 @@ export type ModuloKey =
   | 'CORREOS'
   | 'TAREAS'
   | 'EQUIPO'
+  | 'SEGURIDAD'
 
 export interface ModuloInfo {
   key: ModuloKey
@@ -141,6 +142,12 @@ export const MODULOS_CONFIG: Record<ModuloKey, ModuloInfo> = {
     key: 'EQUIPO',
     label: 'Nuestro Equipo PCG',
     icon: '★',
+    rolesPermitidos: ['ADMIN', 'DOC_PROCESS', 'WORKER', 'CLIENTE_EMPRESA', 'CLIENTE_PERSONA'],
+  },
+  SEGURIDAD: {
+    key: 'SEGURIDAD',
+    label: 'Seguridad y Contraseña',
+    icon: '🔑',
     rolesPermitidos: ['ADMIN', 'DOC_PROCESS', 'WORKER', 'CLIENTE_EMPRESA', 'CLIENTE_PERSONA'],
   },
 }

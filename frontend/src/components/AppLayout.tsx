@@ -32,6 +32,7 @@ function getNavigationForUser(user: Usuario): NavItem[] {
       { to: '/app/catalogo', label: 'Catálogo y Precios', icon: '≡', color: 'from-lime-400 to-emerald-500' },
       { to: '/app/correos', label: 'Auditoría Correos', icon: '✓', color: 'from-indigo-400 to-violet-500' },
       { to: '/app/equipo', label: 'Nuestro Equipo PCG', icon: '★', color: 'from-emerald-400 to-cyan-500' },
+      { to: '/app/seguridad', label: 'Cambiar Contraseña', icon: '🔑', color: 'from-amber-400 to-rose-500' },
     ]
   }
 
@@ -49,6 +50,7 @@ function getNavigationForUser(user: Usuario): NavItem[] {
       { to: '/app/catalogo', label: 'Catálogo y Tarifas', icon: '≡', color: 'from-lime-400 to-emerald-500' },
       { to: '/app/correos', label: 'Historial Correos', icon: '✓', color: 'from-indigo-400 to-violet-500' },
       { to: '/app/equipo', label: 'Nuestro Equipo PCG', icon: '★', color: 'from-emerald-400 to-cyan-500' },
+      { to: '/app/seguridad', label: 'Cambiar Contraseña', icon: '🔑', color: 'from-amber-400 to-rose-500' },
     ]
   }
 
@@ -108,6 +110,13 @@ function getNavigationForUser(user: Usuario): NavItem[] {
       color: 'from-emerald-400 to-cyan-500',
     })
 
+    items.push({
+      to: '/app/seguridad',
+      label: 'Cambiar Contraseña',
+      icon: '🔑',
+      color: 'from-amber-400 to-rose-500',
+    })
+
     return items
   }
 
@@ -123,6 +132,7 @@ function getNavigationForUser(user: Usuario): NavItem[] {
       { to: '/app/alertas', label: 'Próximas mantenciones', icon: '◔', color: 'from-rose-400 to-orange-500' },
       { to: '/app/informes', label: 'Informes', icon: '▥', color: 'from-teal-400 to-emerald-500' },
       { to: '/app/equipo', label: 'Nuestro Equipo PCG', icon: '★', color: 'from-emerald-400 to-cyan-500' },
+      { to: '/app/seguridad', label: 'Cambiar Contraseña', icon: '🔑', color: 'from-amber-400 to-rose-500' },
     ]
   }
 
@@ -137,6 +147,7 @@ function getNavigationForUser(user: Usuario): NavItem[] {
     { to: '/app/finanzas', label: 'Mis Boletas / Pagos', icon: '◈', color: 'from-emerald-500 to-lime-500' },
     { to: '/app/informes', label: 'Informes', icon: '▥', color: 'from-teal-400 to-emerald-500' },
     { to: '/app/equipo', label: 'Nuestro Equipo PCG', icon: '★', color: 'from-emerald-400 to-cyan-500' },
+    { to: '/app/seguridad', label: 'Cambiar Contraseña', icon: '🔑', color: 'from-amber-400 to-rose-500' },
   ]
 }
 
@@ -221,6 +232,13 @@ export default function AppLayout() {
             </div>
           </div>
           <div className="mt-2 flex gap-1">
+            <Link
+              to="/app/seguridad"
+              className="flex-1 rounded-lg bg-white/5 px-2.5 py-1.5 text-center text-xs font-medium text-amber-300 transition hover:bg-amber-500/20 hover:text-amber-200 flex items-center justify-center gap-1"
+              title="Cambiar mi contraseña de acceso"
+            >
+              🔑 Clave
+            </Link>
             <button
               onClick={logout}
               className="flex-1 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-rose-500/20 hover:text-rose-200"
@@ -344,6 +362,28 @@ export default function AppLayout() {
             </select>
           </div>
         </header>
+
+        {/* Banner de Recordatorio de Seguridad si la contraseña es pcg123 */}
+        {Boolean(
+          user.esClavePorDefecto ??
+          (user.password === 'pcg123' ||
+            (typeof user.password === 'string' && !user.password.startsWith('$2y$') && user.password === 'pcg123'))
+        ) && (
+          <div className="border-b border-amber-300/80 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 px-4 py-2.5 text-xs text-amber-950 sm:px-6 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">⚠️</span>
+              <span>
+                <strong>Seguridad de tu cuenta:</strong> Tu contraseña actual es la clave inicial temporal (<code className="font-mono font-bold text-amber-800 bg-amber-200/70 px-1 py-0.5 rounded">pcg123</code>). Por seguridad de tus datos, proyectos y boletas, te recomendamos cambiarla.
+              </span>
+            </div>
+            <Link
+              to="/app/seguridad"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-1 font-bold text-white transition shadow-xs text-xs"
+            >
+              🔑 Cambiar Contraseña Ahora
+            </Link>
+          </div>
+        )}
 
         <motion.main
           key={loc.pathname + String(user.id)}

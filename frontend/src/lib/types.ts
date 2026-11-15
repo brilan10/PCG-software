@@ -94,6 +94,7 @@ export interface Usuario {
   aptoDesarrollador?: boolean
   direccion?: string
   ciudad?: string
+  esClavePorDefecto?: boolean
 }
 
 export interface Empresa {

@@ -24,6 +24,7 @@ export default function QuickAccess() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [errorAuth, setErrorAuth] = useState('')
+  const [showClaveAyuda, setShowClaveAyuda] = useState(false)
   const [razonSocial, setRazonSocial] = useState('')
   const [direccion, setDireccion] = useState('')
   const [comuna, setComuna] = useState('Santiago')
@@ -247,7 +248,7 @@ export default function QuickAccess() {
                   if (clienteExistente) {
                     const passInput = password.trim()
                     if (!passInput) {
-                      setErrorAuth('Por favor ingresa tu contraseña para confirmar tu hora.')
+                      setErrorAuth('Por favor ingresa tu contraseña para confirmar tu hora. Si es tu primera vez agendando o aún no la cambias, tu clave inicial es: pcg123.')
                       return
                     }
                     const passCoincide =
@@ -261,11 +262,11 @@ export default function QuickAccess() {
                       try {
                         const authUser = await login(clienteExistente.email, passInput)
                         if (!authUser) {
-                          setErrorAuth('Contraseña incorrecta. Por favor verifica tu clave (clave por defecto: pcg123).')
+                          setErrorAuth('Contraseña incorrecta. Si es tu primera vez agendando o aún no la has cambiado, tu clave inicial es: pcg123.')
                           return
                         }
                       } catch {
-                        setErrorAuth('Contraseña incorrecta. Por favor verifica tus credenciales.')
+                        setErrorAuth('Contraseña incorrecta. Si es tu primera vez agendando o aún no la has cambiado, tu clave inicial es: pcg123.')
                         return
                       }
                     }
@@ -655,9 +656,21 @@ export default function QuickAccess() {
                           placeholder="Tu contraseña de acceso"
                           required
                         />
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          (Si es tu primera vez o no la has cambiado, tu clave es: <strong className="text-emerald-400">pcg123</strong>)
+                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Acceso seguro a tu portal</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowClaveAyuda(!showClaveAyuda)}
+                            className="text-emerald-400 hover:text-emerald-300 transition underline underline-offset-2"
+                          >
+                            ¿Primera vez o no recuerdas tu clave?
+                          </button>
                         </div>
+                        {showClaveAyuda && (
+                          <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/70 p-2.5 text-xs text-emerald-200">
+                            💡 Si es tu primera vez agendando o aún no la cambias, tu clave temporal por defecto es <strong className="text-white font-mono bg-emerald-900/80 px-1 py-0.5 rounded">pcg123</strong>. Podrás cambiarla una vez dentro de tu portal.
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (

@@ -15,6 +15,7 @@ import FinanzasPage from '@/pages/app/Finanzas'
 import InventarioPage from '@/pages/app/Inventario'
 import ProyectosPage from '@/pages/app/Proyectos'
 import TeamCards from '@/components/TeamCards'
+import SeguridadPage from '@/pages/app/SeguridadPage'
 import {
   EmpresasPage,
   PersonalPage,
@@ -218,6 +219,16 @@ export default function App() {
               <div className="overflow-hidden rounded-3xl shadow-xl">
                 <TeamCards />
               </div>
+            </AccessGuard>
+          }
+        />
+
+        {/* Seguridad y Cambio de Contraseña (Disponible para todos los usuarios) */}
+        <Route
+          path="seguridad"
+          element={
+            <AccessGuard modulo="SEGURIDAD">
+              <SeguridadPage />
             </AccessGuard>
           }
         />

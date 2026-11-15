@@ -40,6 +40,7 @@ try {
                 'titulo' => $r['titulo'] ?? null,
                 'horasSemanales' => $r['horas_semanales'] !== null ? (int)$r['horas_semanales'] : 40,
                 'color' => $r['color'] ?? '#10b981',
+                'esClavePorDefecto' => ($r['password'] === 'pcg123' || password_verify('pcg123', (string)$r['password'])),
             ];
         }, $stmt->fetchAll());
 

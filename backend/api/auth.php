@@ -34,8 +34,9 @@ try {
         jsonError('Credenciales incorrectas o usuario inactivo', 401);
     }
 
-    // Comprobación de password (soporta hash bcrypt, texto plano o clave maestra pcg123)
-    $valid = ($password === $u['password']) || password_verify($password, $u['password']) || ($password === 'pcg123');
+    // Comprobación de password (soporta hash bcrypt, texto plano o clave inicial pcg123)
+    $isDefault = ($u['password'] === 'pcg123') || password_verify('pcg123', (string)$u['password']);
+    $valid = ($password === $u['password']) || password_verify($password, (string)$u['password']) || ($isDefault && $password === 'pcg123');
 
     if (!$valid) {
         jsonError('Credenciales incorrectas', 401);
@@ -55,6 +56,7 @@ try {
         'empresaId' => $u['empresa_id'] !== null ? (int)$u['empresa_id'] : null,
         'color' => $u['color'],
         'activo' => (bool)$u['activo'],
+        'esClavePorDefecto' => $isDefault,
     ];
 
     jsonResponse([
