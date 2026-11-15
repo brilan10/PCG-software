@@ -164,8 +164,8 @@ function NuevaCotModal({
   }))
 
   const [enviarAlCrear, setEnviarAlCrear] = useState<boolean>(true)
-  const [cant, setCant] = useState(tck?.cantEquipos ?? 9)
-  const [paqueteId, setPaqueteId] = useState<number>(1)
+  const [cant, setCant] = useState(tck?.cantEquipos ?? 1)
+  const [paqueteId, setPaqueteId] = useState<number>(0)
   const [modo, setModo] = useState<Cotizacion['modo']>('CONVENIO')
 
   // Descuento a criterio (manual)
@@ -199,11 +199,16 @@ function NuevaCotModal({
     })
   }
 
-  const [items, setItems] = useState<ItemCot[]>(() => buildFromPack(1, tck?.cantEquipos ?? 9))
+  // Inicializar limpio con 0 ítems para que el usuario los agregue uno a uno
+  const [items, setItems] = useState<ItemCot[]>([])
 
   const applyPack = (pid: number, n: number) => {
     setPaqueteId(pid)
-    setItems(buildFromPack(pid, n))
+    if (!pid || pid === 0) {
+      setItems([])
+    } else {
+      setItems(buildFromPack(pid, n))
+    }
   }
 
   const updateCant = (n: number) => {
@@ -225,11 +230,15 @@ function NuevaCotModal({
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
+          if (items.length === 0) {
+            alert('Por favor agrega al menos un servicio o ítem a la cotización antes de generarla.')
+            return
+          }
           onCreate({
             ticketId,
             clienteForm,
             enviarAlCrear,
-            paqueteId,
+            paqueteId: paqueteId || undefined,
             modo,
             descuentoCriterioPct: dctoPct || undefined,
             descuentoCriterioMonto: dctoMonto || undefined,
@@ -253,8 +262,9 @@ function NuevaCotModal({
         />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Plantilla / Hoja de Cotización_Formal_PCG_SPA.xlsx">
+          <Field label="Plantilla / Hoja de Cotización_Formal_PCG_SPA.xlsx (Opcional)">
             <select className={inputCls} value={paqueteId} onChange={(e) => applyPack(Number(e.target.value), cant)}>
+              <option value={0}>-- Sin plantilla (Agregar servicios uno a uno) --</option>
               {db.paquetes.map((p) => (
                 <option key={p.id} value={p.id}>{p.nombre} ({p.sufijo})</option>
               ))}
@@ -343,7 +353,22 @@ function NuevaCotModal({
         {/* Selector de servicios individuales + Tabla de ítems */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-slate-800">📋 Detalle de Servicios e Ítems ({items.length}):</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800">📋 Detalle de Servicios e Ítems ({items.length}):</span>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaqueteId(0)
+                    setItems([])
+                  }}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                  title="Limpiar todos los ítems para empezar de cero"
+                >
+                  🧹 Limpiar lista
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className={`${inputCls} !text-xs !py-1 !w-auto bg-white`}
@@ -413,60 +438,65 @@ function NuevaCotModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((it, idx) => (
-                  <tr key={idx}>
-                    <td className="p-2">
-                      <textarea
-                        className={`${inputCls} !text-xs`}
-                        rows={2}
-                        value={it.descripcion}
-                        onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, descripcion: e.target.value } : x)))}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        min={1}
-                        className={`${inputCls} !text-xs !py-1 !w-16`}
-                        value={it.cantidad}
-                        onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, cantidad: Math.max(1, Number(e.target.value)) } : x)))}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        className={`${inputCls} !text-xs`}
-                        value={it.normal}
-                        onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, normal: Number(e.target.value) } : x)))}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        className={`${inputCls} !text-xs`}
-                        value={it.convenio}
-                        onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, convenio: Number(e.target.value) } : x)))}
-                      />
-                    </td>
-                    <td className="p-2 font-semibold">{fmtCLP((modo === 'CONVENIO' ? it.convenio : it.normal) * it.cantidad)}</td>
-                    <td className="p-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                        className="rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-                        title="Eliminar este ítem"
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
+                {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-4 text-center text-xs text-slate-400">
-                      No hay ítems en la cotización. Elige un paquete o agrega un servicio del catálogo arriba.
+                    <td colSpan={6} className="p-8 text-center bg-slate-50/50">
+                      <div className="text-2xl mb-1">📋</div>
+                      <div className="font-bold text-slate-800 text-sm">Sin ítems precargados</div>
+                      <div className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        Agrega los servicios uno a uno seleccionando en el menú superior <strong>"+ Agregar servicio del catálogo PCG..."</strong> o haz clic en <strong>"+ Ítem libre"</strong>. También puedes seleccionar una plantilla arriba si deseas autocompletar.
+                      </div>
                     </td>
                   </tr>
+                ) : (
+                  items.map((it, idx) => (
+                    <tr key={idx}>
+                      <td className="p-2">
+                        <textarea
+                          className={`${inputCls} !text-xs`}
+                          rows={2}
+                          value={it.descripcion}
+                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, descripcion: e.target.value } : x)))}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          min={1}
+                          className={`${inputCls} !text-xs !py-1 !w-16`}
+                          value={it.cantidad}
+                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, cantidad: Math.max(1, Number(e.target.value)) } : x)))}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className={`${inputCls} !text-xs`}
+                          value={it.normal}
+                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, normal: Number(e.target.value) } : x)))}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className={`${inputCls} !text-xs`}
+                          value={it.convenio}
+                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, convenio: Number(e.target.value) } : x)))}
+                        />
+                      </td>
+                      <td className="p-2 font-semibold">{fmtCLP((modo === 'CONVENIO' ? it.convenio : it.normal) * it.cantidad)}</td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                          className="rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                          title="Eliminar este ítem"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

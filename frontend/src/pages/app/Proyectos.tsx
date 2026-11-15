@@ -1162,44 +1162,25 @@ export default function ProyectosPage() {
 
                 <td className={`${td} text-right`}>
                   <div className="flex flex-wrap justify-end gap-1">
-                    {isClient ? (
-                      (() => {
-                        const pOts = (db.ots ?? []).filter((o) => o.proyectoId === p.id)
-                        return pOts.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOtId(pOts[0].id)}
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
-                          >
-                            👁️ Ver Fases OT
-                          </button>
-                        ) : (
-                          <span className="text-xs font-semibold text-slate-400">En desarrollo</span>
-                        )
-                      })()
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setModalForm({ proyecto: p })}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!confirm(`¿Eliminar "${p.nombreProyecto}"?`)) return
-                            mutate((d) => {
-                              d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
-                            })
-                          }}
-                          className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                        >
-                          ✕
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setModalForm({ proyecto: p })}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!confirm(`¿Eliminar "${p.nombreProyecto}"?`)) return
+                        mutate((d) => {
+                          d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
+                        })
+                      }}
+                      className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </td>
               </tr>
