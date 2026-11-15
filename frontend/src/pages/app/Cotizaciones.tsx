@@ -694,7 +694,9 @@ export function CotizacionDetailPage() {
             <Badge tone={cotTone[cot.estado]}>{cot.estado}</Badge>
             <div className="mt-1 text-lg font-bold text-slate-900">{cot.numero}</div>
             <div className="text-xs text-slate-500">Emisión: {fmtFecha(cot.fecha)}</div>
-            <div className="text-xs text-slate-500">Validez: {fmtFecha(cot.validaHasta)}</div>
+            <div className="text-xs text-slate-500">
+              Validez: <strong className="text-slate-800">{fmtFecha(cot.validaHasta)}</strong> (15 días corridos)
+            </div>
           </div>
         </div>
 
@@ -792,6 +794,9 @@ export function CotizacionDetailPage() {
           <div>
             <div className="font-semibold text-slate-800">Condiciones Comerciales</div>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              <li>
+                <strong>Validez y congelación de precio:</strong> El precio se respeta durante los próximos 15 días (hasta el {fmtFecha(cot.validaHasta)}), después pasa a ser precio normal.
+              </li>
               <li>Forma de pago: {db.config.condPago}.</li>
               <li>Plazo de ejecución: {db.config.condPlazo}.</li>
               <li>Garantía técnica: {db.config.condGarantiaDias} días continuos post-entrega.</li>
@@ -872,7 +877,7 @@ function EnviarCorreoCotModal({
   const mailtoHref = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(
     `Cotización Oficial ${cot.numero} — ${db.config.razonSocial}`,
   )}&body=${encodeURIComponent(
-    `Estimado(a) ${cli?.nombre ?? 'Cliente'}${emp ? ` (${emp.razonSocial})` : ''},\n\nAdjuntamos la cotización formal ${cot.numero} para ${cot.cantEquipos} equipo(s) por un total de ${fmtCLP(cot.total)}.\n\nAtentamente,\n${db.config.razonSocial}\n${db.config.email} · ${db.config.telefono}`,
+    `Estimado(a) ${cli?.nombre ?? 'Cliente'}${emp ? ` (${emp.razonSocial})` : ''},\n\nAdjuntamos la cotización formal ${cot.numero} para ${cot.cantEquipos} equipo(s) por un total de ${fmtCLP(cot.total)}.\n\n📌 CONDICIÓN DE PRECIO: El precio ofertado se respeta durante los próximos 15 días (hasta el ${fmtFecha(cot.validaHasta)}); después pasa a ser precio normal.\n\nAtentamente,\n${db.config.razonSocial}\n${db.config.email} · Tel / WhatsApp: ${db.config.telefono}`,
   )}`
 
   return (

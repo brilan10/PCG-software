@@ -406,7 +406,7 @@ export function EmpresasPage() {
                     </td>
                     <td className={td}>
                       <div className="font-mono text-xs font-semibold text-emerald-700">✉ {u.email}</div>
-                      <div className="text-xs text-slate-500">📞 {u.telefono ?? '+56 9 4938 4043'}</div>
+                      <div className="text-xs text-slate-500">📞 {u.telefono ?? '+56 9 3029 0082'}</div>
                     </td>
                     <td className={td}>
                       <div className="flex flex-wrap gap-1.5">

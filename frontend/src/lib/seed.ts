@@ -413,7 +413,7 @@ export function buildSeed(): DB {
       planTecnicoId: 3,
       estado: 'ACEPTADA',
       fecha: addDays(hoy, -2),
-      validaHasta: addDays(hoy, 19),
+      validaHasta: addDays(hoy, 13),
       emitidaPor: 2,
     },
   ]
@@ -824,11 +824,11 @@ export function buildSeed(): DB {
       razonSocial: 'PCG SPA',
       giro: 'Servicios TI, Soporte, Mantenimiento de Equipos & Desarrollo de Software',
       rut: '77.806.251-8',
-      telefono: '+56 9 4938 4043',
+      telefono: '+56 9 3029 0082',
       email: 'serviciotecnicopcg@gmail.com',
       condPago: '50% al iniciar los trabajos y 50% contra recepción conforme',
       condPlazo: '1 a 2 jornadas hábiles coordinadas según disponibilidad',
-      condValidezDias: 21,
+      condValidezDias: 15,
       condGarantiaDias: 30,
     },
     descuentos: [

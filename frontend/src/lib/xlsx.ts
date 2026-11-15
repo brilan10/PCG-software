@@ -57,7 +57,7 @@ export async function downloadCotizacionXlsx(db: DB, cot: Cotizacion) {
   addTot('TOTAL FINAL:', cot.total, true)
 
   ws.addRow([])
-  ws.addRow(['', `Condiciones: ${db.config.condPago} · Plazo: ${db.config.condPlazo} · Garantía: ${db.config.condGarantiaDias} días.`])
+  ws.addRow(['', `Condiciones: ${db.config.condPago} · Plazo: ${db.config.condPlazo} · Garantía: ${db.config.condGarantiaDias} días. NOTA: El precio se respeta durante los próximos 15 días (hasta ${fmtFecha(cot.validaHasta)}), después pasa a ser precio normal.`])
 
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })

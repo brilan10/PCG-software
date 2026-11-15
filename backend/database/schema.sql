@@ -383,7 +383,7 @@ CREATE TABLE configuracion (
     email VARCHAR(150) NULL,
     cond_pago TEXT NULL,
     cond_plazo TEXT NULL,
-    cond_validez_dias INT DEFAULT 21,
+    cond_validez_dias INT DEFAULT 15,
     cond_garantia_dias INT DEFAULT 30,
     banco_datos JSON NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

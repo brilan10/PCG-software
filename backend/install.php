@@ -501,11 +501,11 @@ try {
             ':giro' => $cfg['giro'] ?? 'Servicios TI',
             ':direccion' => $cfg['direccion'] ?? 'Av. Providencia 1208, Of. 602',
             ':ciudad' => $cfg['ciudad'] ?? 'Santiago',
-            ':telefono' => $cfg['telefono'] ?? '+56 9 4938 4043',
+            ':telefono' => $cfg['telefono'] ?? '+56 9 3029 0082',
             ':email' => $cfg['email'] ?? 'serviciotecnicopcg@gmail.com',
             ':cond_pago' => $cfg['condPago'] ?? '',
             ':cond_plazo' => $cfg['condPlazo'] ?? '',
-            ':cond_validez_dias' => $cfg['condValidezDias'] ?? 21,
+            ':cond_validez_dias' => $cfg['condValidezDias'] ?? 15,
             ':cond_garantia_dias' => $cfg['condGarantiaDias'] ?? 30,
             ':banco_datos' => isset($cfg['banco']) ? json_encode($cfg['banco'], JSON_UNESCAPED_UNICODE) : null,
         ]);

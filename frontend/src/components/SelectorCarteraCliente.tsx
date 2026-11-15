@@ -52,7 +52,7 @@ export default function SelectorCarteraCliente({
             nombreContacto: u.nombre,
             rut: emp?.rut ?? u.rut ?? '',
             email: u.email,
-            telefono: u.telefono ?? '+56 9 4938 4043',
+            telefono: u.telefono ?? '+56 9 3029 0082',
             giro: emp?.giro ?? (emp ? 'Servicios TI' : 'Particular'),
             ciudad: emp?.ciudad ?? 'Santiago',
             direccion: emp?.direccion ?? '',

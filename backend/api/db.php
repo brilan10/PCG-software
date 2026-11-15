@@ -437,11 +437,11 @@ try {
             'razonSocial' => $cfgRow['razon_social'] ?? 'PCG SPA',
             'giro' => $cfgRow['giro'] ?? 'Servicios Informáticos Integrales',
             'rut' => $cfgRow['rut'] ?? '77.806.251-8',
-            'telefono' => $cfgRow['telefono'] ?? '+56 9 4938 4043',
+            'telefono' => $cfgRow['telefono'] ?? '+56 9 3029 0082',
             'email' => $cfgRow['email'] ?? 'serviciotecnicopcg@gmail.com',
             'condPago' => $cfgRow['cond_pago'] ?? '',
             'condPlazo' => $cfgRow['cond_plazo'] ?? '',
-            'condValidezDias' => (int)($cfgRow['cond_validez_dias'] ?? 21),
+            'condValidezDias' => (int)($cfgRow['cond_validez_dias'] ?? 15),
             'condGarantiaDias' => (int)($cfgRow['cond_garantia_dias'] ?? 30),
         ];
 
