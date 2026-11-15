@@ -1,17 +1,33 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { useScope } from '@/lib/scope'
 import { aceptarCotizacion, emitirCotizacion, enviarCotizacion, resolverORegistrarCliente } from '@/lib/actions'
 import type { DatosClienteForm } from '@/lib/actions'
 import { downloadCotizacionXlsx } from '@/lib/xlsx'
-import type { Cotizacion, ItemCot, Prioridad } from '@/lib/types'
+import type { Cotizacion, ItemCot, Prioridad, Servicio } from '@/lib/types'
 import { addDays, calcCot, fmtCLP, fmtFecha, reglaDescuento, today } from '@/lib/util'
 import { cotTone } from '@/lib/tones'
 import OTSchedulerCalendar from '@/components/OTSchedulerCalendar'
 import type { OTScheduleValue } from '@/components/OTSchedulerCalendar'
 import SelectorCarteraCliente from '@/components/SelectorCarteraCliente'
 import { Badge, Btn, Empty, Field, Modal, PageHeader, Table, inputCls, td } from '@/components/kit'
+
+const normText = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+const matchSimilar = (texto: string, busqueda: string) => {
+  const q = normText(busqueda)
+  if (!q) return true
+  const hay = normText(texto)
+  if (hay.includes(q)) return true
+  const tokens = q.split(/\s+/).filter(Boolean)
+  return tokens.length > 0 && tokens.every((t) => hay.includes(t))
+}
 
 export function CotizacionesPage() {
   const { db, user, mutate } = useStore()
@@ -166,7 +182,14 @@ function NuevaCotModal({
   const [enviarAlCrear, setEnviarAlCrear] = useState<boolean>(true)
   const [cant, setCant] = useState(tck?.cantEquipos ?? 1)
   const [paqueteId, setPaqueteId] = useState<number>(0)
-  const [modo, setModo] = useState<Cotizacion['modo']>('CONVENIO')
+  const [modo, setModo] = useState<Cotizacion['modo']>(
+    defaultCli?.rol === 'CLIENTE_PERSONA' ? 'CRITERIO' : 'CONVENIO',
+  )
+
+  // Buscador rápido del catálogo de servicios
+  const [busquedaServicio, setBusquedaServicio] = useState('')
+  const [categoriaServicio, setCategoriaServicio] = useState<'TODOS' | 'HARDWARE' | 'WEB_SOFT' | 'DISENO'>('TODOS')
+  const [catalogoAbierto, setCatalogoAbierto] = useState(true)
 
   // Descuento a criterio (manual)
   const [dctoPct, setDctoPct] = useState<number>(0)
@@ -194,7 +217,7 @@ function NuevaCotModal({
         descripcion: `${s.nombre}\n(${s.descripcion})`,
         cantidad: n,
         normal: baseNormal,
-        convenio: s.convenio,
+        convenio: isPersona ? baseNormal : s.convenio,
       }
     })
   }
@@ -217,24 +240,84 @@ function NuevaCotModal({
     setItems((prev) => prev.map((it) => ({ ...it, cantidad: val })))
   }
 
+  const sincronizarPreciosPorTipo = (tipo: 'EMPRESA' | 'PERSONA') => {
+    const isPersona = tipo === 'PERSONA'
+    if (isPersona) {
+      setModo('CRITERIO')
+    } else if (modo === 'CRITERIO' && clienteForm.tipoCliente === 'PERSONA') {
+      setModo('CONVENIO')
+    }
+    setItems((prev) =>
+      prev.map((it) => {
+        if (!it.servicioId) return it
+        const s = db.servicios.find((x) => x.id === it.servicioId)
+        if (!s) return it
+        if (isPersona) {
+          const pCli = s.tarifaCliente ?? s.normal
+          return { ...it, normal: pCli, convenio: pCli }
+        }
+        return {
+          ...it,
+          normal: s.tarifaEmpresa ?? s.normal,
+          convenio: s.convenio,
+        }
+      }),
+    )
+  }
+
   const handleClienteChange = (next: DatosClienteForm) => {
     const prevTipo = clienteForm.tipoCliente
     setClienteForm(next)
     if (next.tipoCliente !== prevTipo) {
-      const isPersona = next.tipoCliente === 'PERSONA'
-      setItems((prev) =>
-        prev.map((it) => {
-          if (!it.servicioId) return it
-          const s = db.servicios.find((x) => x.id === it.servicioId)
-          if (!s) return it
-          const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
-          return { ...it, normal: baseNormal }
-        }),
-      )
+      sincronizarPreciosPorTipo(next.tipoCliente)
     }
   }
 
+  const serviciosFiltrados = useMemo(() => {
+    return db.servicios.filter((s) => {
+      if (s.activo === false) return false
+      if (categoriaServicio === 'WEB_SOFT') {
+        if (!s.codigo.startsWith('WEB-') && !s.codigo.startsWith('SOFT-')) return false
+      } else if (categoriaServicio === 'DISENO') {
+        if (!s.codigo.startsWith('DIS-')) return false
+      } else if (categoriaServicio === 'HARDWARE') {
+        if (s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-') || s.codigo.startsWith('DIS-')) return false
+      }
+      if (!busquedaServicio.trim()) return true
+      return matchSimilar(`${s.codigo} ${s.nombre} ${s.descripcion}`, busquedaServicio)
+    })
+  }, [db.servicios, categoriaServicio, busquedaServicio])
+
+  const agregarServicioCatalogo = (s: Servicio) => {
+    const isSingle = s.codigo.startsWith('DIS-') || s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-')
+    const isPersona = clienteForm.tipoCliente === 'PERSONA'
+    const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
+    setItems((prev) => [
+      ...prev,
+      {
+        servicioId: s.id,
+        descripcion: `${s.nombre}\n(${s.descripcion})`,
+        cantidad: isSingle ? 1 : cant,
+        normal: baseNormal,
+        convenio: isPersona ? baseNormal : s.convenio,
+      },
+    ])
+  }
+
   const totals = calcCot(db, items, cant, modo, { pct: dctoPct, monto: dctoMonto })
+  const subtotalTrasPct = useMemo(() => {
+    const volPct = reglaDescuento(db, cant)
+    return items.reduce((acc, it) => {
+      const baseItem =
+        modo === 'CONVENIO'
+          ? it.convenio * it.cantidad
+          : modo === 'VOLUMEN'
+            ? Math.round(it.normal * (1 - volPct / 100)) * it.cantidad
+            : it.normal * it.cantidad
+      const trasPct = dctoPct ? Math.round(baseItem * (1 - Math.min(100, Math.max(0, dctoPct)) / 100)) : baseItem
+      return acc + trasPct
+    }, 0)
+  }, [db, items, cant, modo, dctoPct])
   const pct = totals.subtotalNormal > 0 ? ((totals.descuentoMonto / totals.subtotalNormal) * 100).toFixed(1) : '0'
   const costoInterno = items.reduce((s, i) => {
     const srv = db.servicios.find((x) => x.id === i.servicioId)
@@ -292,8 +375,38 @@ function NuevaCotModal({
           </Field>
         </div>
 
-        {/* Selector de modalidad + Descuento a criterio */}
+        {/* Selector de tarifa Empresa/Particular + modalidad + Descuento a criterio */}
         <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-50/80 via-white to-emerald-50/60 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2.5">
+            <span className="text-xs font-bold text-slate-800">
+              0. Tipo de tarifa según cliente:
+            </span>
+            <div className="flex gap-1.5 rounded-xl bg-white/90 p-1 ring-1 ring-amber-200/80">
+              <button
+                type="button"
+                onClick={() => handleClienteChange({ ...clienteForm, tipoCliente: 'EMPRESA' })}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  clienteForm.tipoCliente === 'EMPRESA'
+                    ? 'bg-violet-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                🏢 Tarifa Empresa B2B
+              </button>
+              <button
+                type="button"
+                onClick={() => handleClienteChange({ ...clienteForm, tipoCliente: 'PERSONA' })}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  clienteForm.tipoCliente === 'PERSONA'
+                    ? 'bg-sky-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                👤 Tarifa Persona Particular
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="font-bold text-slate-800">1. Modalidad base:</span>
             <label className="flex items-center gap-1.5 font-medium">
@@ -367,11 +480,13 @@ function NuevaCotModal({
           </div>
         </div>
 
-        {/* Selector de servicios individuales + Tabla de ítems */}
-        <div className="space-y-2">
+        {/* Buscador interactivo de servicios del catálogo + Tabla scrolleable de ítems */}
+        <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800">📋 Detalle de Servicios e Ítems ({items.length}):</span>
+              <span className="text-xs font-bold text-slate-800">
+                📋 Detalle de Servicios e Ítems ({items.length}):
+              </span>
               {items.length > 0 && (
                 <button
                   type="button"
@@ -387,51 +502,24 @@ function NuevaCotModal({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                className={`${inputCls} !text-xs !py-1 !w-auto bg-white`}
-                value=""
-                onChange={(e) => {
-                  const sid = Number(e.target.value)
-                  if (!sid) return
-                  const s = db.servicios.find((x) => x.id === sid)
-                  if (s) {
-                    const isSingle = s.codigo.startsWith('DIS-') || s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-')
-                    const isPersona = clienteForm.tipoCliente === 'PERSONA'
-                    const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
-                    setItems((prev) => [
-                      ...prev,
-                      {
-                        servicioId: s.id,
-                        descripcion: `${s.nombre}\n(${s.descripcion})`,
-                        cantidad: isSingle ? 1 : cant,
-                        normal: baseNormal,
-                        convenio: s.convenio,
-                      },
-                    ])
-                  }
-                }}
+              <button
+                type="button"
+                onClick={() => setCatalogoAbierto((v) => !v)}
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition"
               >
-                <option value="">+ Agregar servicio del catálogo PCG...</option>
-                {db.servicios.map((s) => {
-                  const isPersona = clienteForm.tipoCliente === 'PERSONA'
-                  const priceToShow = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
-                  return (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre} · {isPersona ? 'Cliente' : 'Empresa'}: {fmtCLP(priceToShow)} (Convenio: {fmtCLP(s.convenio)})
-                    </option>
-                  )
-                })}
-              </select>
+                {catalogoAbierto ? '▲ Ocultar Catálogo PCG' : '+ Buscar en Catálogo PCG'}
+              </button>
               <button
                 type="button"
                 onClick={() => {
+                  const isPersona = clienteForm.tipoCliente === 'PERSONA'
                   setItems((prev) => [
                     ...prev,
                     {
                       descripcion: 'Repuesto o Servicio personalizado adicional',
                       cantidad: 1,
-                      normal: 45000,
-                      convenio: 38000,
+                      normal: isPersona ? 35000 : 45000,
+                      convenio: 35000,
                     },
                   ])
                 }}
@@ -442,78 +530,223 @@ function NuevaCotModal({
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          {/* Buscador del Catálogo PCG con lista limitada y scroll */}
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1">
+                {(
+                  [
+                    ['TODOS', 'Todos'],
+                    ['HARDWARE', '🛠️ Soporte / HW'],
+                    ['WEB_SOFT', '🌐 Web / Software'],
+                    ['DISENO', '🎨 Diseño'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setCategoriaServicio(id)
+                      setCatalogoAbierto(true)
+                    }}
+                    className={`rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+                      categoriaServicio === id
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">
+                Tarifas activas:{' '}
+                <strong className={clienteForm.tipoCliente === 'PERSONA' ? 'text-sky-700' : 'text-violet-700'}>
+                  {clienteForm.tipoCliente === 'PERSONA' ? '👤 Particular' : '🏢 Empresa B2B'}
+                </strong>{' '}
+                · {serviciosFiltrados.length} servicio(s)
+              </span>
+            </div>
+
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-slate-400">
+                🔎
+              </span>
+              <input
+                type="text"
+                className={`${inputCls} !py-1.5 !pl-8 !pr-20 !text-xs bg-white`}
+                value={busquedaServicio}
+                onFocus={() => setCatalogoAbierto(true)}
+                onChange={(e) => {
+                  setBusquedaServicio(e.target.value)
+                  setCatalogoAbierto(true)
+                }}
+                placeholder="Buscar servicio o ítem por nombre o similares (ej: mantencion, windows, web, logo, software)..."
+              />
+              {busquedaServicio && (
+                <button
+                  type="button"
+                  onClick={() => setBusquedaServicio('')}
+                  className="absolute inset-y-1 right-1.5 rounded-md bg-slate-100 px-2 text-[11px] font-bold text-slate-600 hover:bg-slate-200"
+                >
+                  ✕ Limpiar
+                </button>
+              )}
+            </div>
+
+            {catalogoAbierto && (
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
+                {serviciosFiltrados.length === 0 ? (
+                  <div className="rounded-lg bg-white p-3 text-center text-xs text-slate-500">
+                    No encontramos servicios similares a &ldquo;{busquedaServicio}&rdquo;. Usa{' '}
+                    <strong>+ Ítem libre</strong> para agregar uno personalizado.
+                  </div>
+                ) : (
+                  serviciosFiltrados.map((s) => {
+                    const isPersona = clienteForm.tipoCliente === 'PERSONA'
+                    const precioBase = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs hover:border-emerald-300"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold text-slate-400">{s.codigo}</span>
+                            <span className="truncate font-bold text-slate-900">{s.nombre}</span>
+                          </div>
+                          <div className="truncate text-[11px] text-slate-500">{s.descripcion}</div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className="text-right">
+                            {isPersona ? (
+                              <span className="font-bold text-sky-700">👤 Particular: {fmtCLP(precioBase)}</span>
+                            ) : (
+                              <div className="leading-tight">
+                                <div className="font-bold text-violet-800">🏢 Empresa: {fmtCLP(precioBase)}</div>
+                                <div className="text-[10px] font-semibold text-emerald-700">
+                                  Convenio: {s.convenio === 0 ? 'BONIFICADO' : fmtCLP(s.convenio)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => agregarServicioCatalogo(s)}
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-2xs hover:bg-emerald-500"
+                          >
+                            + Agregar
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Contenedor Scrolleable para los Ítems Agregados */}
+          <div className="max-h-60 overflow-y-auto overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900 text-white">
+              <thead className="sticky top-0 z-10 bg-slate-900 text-white">
                 <tr>
                   <th className="p-2.5">Servicio / Especificación</th>
                   <th className="p-2.5 w-16">Cant.</th>
-                  <th className="p-2.5 w-28">Normal unit.</th>
-                  <th className="p-2.5 w-28">Convenio unit.</th>
-                  <th className="p-2.5 w-28">Subtotal base</th>
+                  <th className="p-2.5 w-24">Normal unit.</th>
+                  <th className="p-2.5 w-24">Convenio unit.</th>
+                  <th className="p-2.5 w-32 text-right">Final c/ Dcto</th>
                   <th className="p-2.5 w-10 text-center">✕</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center bg-slate-50/50">
-                      <div className="text-2xl mb-1">📋</div>
-                      <div className="font-bold text-slate-800 text-sm">Sin ítems precargados</div>
+                    <td colSpan={6} className="p-6 text-center bg-slate-50/50">
+                      <div className="text-xl mb-1">📋</div>
+                      <div className="font-bold text-slate-800 text-sm">Sin ítems agregados</div>
                       <div className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                        Agrega los servicios uno a uno seleccionando en el menú superior <strong>"+ Agregar servicio del catálogo PCG..."</strong> o haz clic en <strong>"+ Ítem libre"</strong>. También puedes seleccionar una plantilla arriba si deseas autocompletar.
+                        Busca arriba en el <strong>Catálogo PCG</strong> y presiona <strong>+ Agregar</strong> o haz clic en <strong>+ Ítem libre</strong>. Al agregar varios ítems podrás escrolear esta tabla.
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  items.map((it, idx) => (
-                    <tr key={idx}>
-                      <td className="p-2">
-                        <textarea
-                          className={`${inputCls} !text-xs`}
-                          rows={2}
-                          value={it.descripcion}
-                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, descripcion: e.target.value } : x)))}
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min={1}
-                          className={`${inputCls} !text-xs !py-1 !w-16`}
-                          value={it.cantidad}
-                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, cantidad: Math.max(1, Number(e.target.value)) } : x)))}
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          className={`${inputCls} !text-xs`}
-                          value={it.normal}
-                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, normal: Number(e.target.value) } : x)))}
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          className={`${inputCls} !text-xs`}
-                          value={it.convenio}
-                          onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, convenio: Number(e.target.value) } : x)))}
-                        />
-                      </td>
-                      <td className="p-2 font-semibold">{fmtCLP((modo === 'CONVENIO' ? it.convenio : it.normal) * it.cantidad)}</td>
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                          className="rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-                          title="Eliminar este ítem"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  items.map((it, idx) => {
+                    const volPct = reglaDescuento(db, cant)
+                    const subNormalItem = it.normal * it.cantidad
+                    const baseItem =
+                      modo === 'CONVENIO'
+                        ? it.convenio * it.cantidad
+                        : modo === 'VOLUMEN'
+                          ? Math.round(it.normal * (1 - volPct / 100)) * it.cantidad
+                          : subNormalItem
+                    const subTrasPct = dctoPct
+                      ? Math.round(baseItem * (1 - Math.min(100, Math.max(0, dctoPct)) / 100))
+                      : baseItem
+                    const subFinalItem =
+                      dctoMonto > 0 && subtotalTrasPct > 0
+                        ? Math.max(0, Math.round(subTrasPct * (Math.max(0, subtotalTrasPct - dctoMonto) / subtotalTrasPct)))
+                        : subTrasPct
+                    const unitFinalItem = Math.round(subFinalItem / Math.max(1, it.cantidad))
+                    const tieneAhorro = subFinalItem < subNormalItem
+
+                    return (
+                      <tr key={idx} className="bg-white hover:bg-slate-50/80">
+                        <td className="p-2">
+                          <textarea
+                            className={`${inputCls} !text-xs`}
+                            rows={2}
+                            value={it.descripcion}
+                            onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, descripcion: e.target.value } : x)))}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            min={1}
+                            className={`${inputCls} !text-xs !py-1 !w-16`}
+                            value={it.cantidad}
+                            onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, cantidad: Math.max(1, Number(e.target.value)) } : x)))}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            className={`${inputCls} !text-xs`}
+                            value={it.normal}
+                            onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, normal: Number(e.target.value) } : x)))}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            className={`${inputCls} !text-xs`}
+                            value={it.convenio}
+                            onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, convenio: Number(e.target.value) } : x)))}
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          {tieneAhorro && (
+                            <div className="text-[10px] text-slate-400 line-through">{fmtCLP(subNormalItem)}</div>
+                          )}
+                          <div className={tieneAhorro ? 'font-extrabold text-emerald-700' : 'font-bold text-slate-900'}>
+                            {subFinalItem === 0 && it.normal > 0 ? '$0 (BONIF.)' : fmtCLP(subFinalItem)}
+                          </div>
+                          <div className="text-[10px] text-slate-500">c/u: {fmtCLP(unitFinalItem)}</div>
+                        </td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                            className="rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                            title="Eliminar este ítem"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

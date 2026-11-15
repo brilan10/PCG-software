@@ -5,6 +5,21 @@ import { Badge, Field, cx, inputCls } from './kit'
 
 const normRut = (r: string) => r.replace(/[^0-9kK]/g, '').toLowerCase()
 const normEmail = (e: string) => e.split(',')[0].trim().toLowerCase()
+const normText = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+const matchSimilar = (texto: string, busqueda: string) => {
+  const q = normText(busqueda)
+  if (!q) return true
+  const hay = normText(texto)
+  if (hay.includes(q)) return true
+  const tokens = q.split(/\s+/).filter(Boolean)
+  return tokens.length > 0 && tokens.every((t) => hay.includes(t))
+}
 
 export interface ClienteCarteraItem {
   key: string
@@ -134,21 +149,20 @@ export default function SelectorCarteraCliente({
     )
   }, [clientesCartera, value.usuarioId, value.rut, value.email])
 
-  // Filtrado rápido combinado: Tipo de Cliente (Todos / Empresa B2B / Persona Natural) + Búsqueda en vivo
+  // Filtrado rápido combinado: Tipo de Cliente (Todos / Empresa B2B / Persona Natural) + Búsqueda en vivo por similares
   const clientesFiltradosBusqueda = useMemo(() => {
     const byTipo =
       filtroTipo === 'TODOS'
         ? clientesCartera
         : clientesCartera.filter((c) => c.tipoCliente === filtroTipo)
 
-    const q = busquedaCartera.trim().toLowerCase()
+    const q = busquedaCartera.trim()
     if (!q) return byTipo
 
     const qRut = normRut(q)
     return byTipo.filter((c) => {
-      const hay =
-        `${c.nombreMostrar} ${c.nombreContacto} ${c.rut} ${c.email} ${c.telefono} ${c.ciudad} ${c.giro}`.toLowerCase()
-      return hay.includes(q) || (qRut.length >= 2 && normRut(c.rut).includes(qRut))
+      const hay = `${c.nombreMostrar} ${c.nombreContacto} ${c.rut} ${c.email} ${c.telefono} ${c.ciudad} ${c.giro}`
+      return matchSimilar(hay, q) || (qRut.length >= 2 && normRut(c.rut).includes(qRut))
     })
   }, [clientesCartera, filtroTipo, busquedaCartera])
 
@@ -412,7 +426,7 @@ export default function SelectorCarteraCliente({
             </div>
 
             {/* Lista interactiva directa para elegir en 1 clic */}
-            <div className="mt-2.5 max-h-52 space-y-1.5 overflow-y-auto pr-1">
+            <div className="mt-2.5 max-h-36 space-y-1.5 overflow-y-auto pr-1">
               {clientesFiltradosBusqueda.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-center text-xs text-slate-600">
                   <div>No hay coincidencias para &ldquo;{busquedaCartera}&rdquo; en esta categoría.</div>
