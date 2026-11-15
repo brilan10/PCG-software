@@ -573,10 +573,17 @@ function Planner() {
           onCreate={(d) => {
             mutate((x) => {
               const res = resolverORegistrarCliente(x, d.clienteForm)
+              let finalEmpresaId = res.empresaId
+              let finalUsuarioId = res.usuarioId
+              if (d.proyectoId) {
+                const p = x.proyectosWeb?.find((proy) => proy.id === d.proyectoId)
+                if (p?.empresaId && !finalEmpresaId) finalEmpresaId = p.empresaId
+                if (p?.usuarioId && !finalUsuarioId) finalUsuarioId = p.usuarioId
+              }
               crearOT(x, {
                 ...d,
-                usuarioId: res.usuarioId,
-                empresaId: res.empresaId,
+                usuarioId: finalUsuarioId,
+                empresaId: finalEmpresaId,
                 creadoPor: user!.id,
               })
             })
@@ -1185,28 +1192,13 @@ function NuevaOT({
   })
   const [total, setTotal] = useState(() => proyInicial ? String(proyInicial.valorProyecto) : '')
 
-  // Planificador de Tareas / Fases
-  const [tareasPlan, setTareasPlan] = useState<TareaPlanItem[]>(() => {
-    if (proyInicial) {
-      const template = proyInicial.tipo === 'SOFTWARE_A_MEDIDA' ? TAREAS_SOFTWARE_MEDIDA : TAREAS_PROYECTO_WEB
-      return template.map((t, idx) => ({
-        id: `t-${idx}-${Date.now()}`,
-        titulo: t.titulo,
-        asignadoId: proyInicial.responsableId ?? 3,
-        hEst: t.horas,
-        dias: 2,
-      }))
-    }
-    return TAREAS_MANTENCION.map((t, idx) => ({
-      id: `t-${idx}-${Date.now()}`,
-      titulo: t.titulo,
-      asignadoId: 3,
-      hEst: t.horas,
-      dias: 1,
-    }))
-  })
+  // Planificador de Tareas / Fases (inicia limpio para permitir agregar una por una)
+  const [tareasPlan, setTareasPlan] = useState<TareaPlanItem[]>([])
 
-  const workers = useMemo(() => db.usuarios.filter((u) => u.rol === 'WORKER'), [db.usuarios])
+  const workers = useMemo(
+    () => db.usuarios.filter((u) => ['ADMIN', 'DOC_PROCESS', 'WORKER'].includes(u.rol) && u.activo),
+    [db.usuarios],
+  )
 
   const cargarPreset = (modo: 'WEB' | 'SOFTWARE' | 'BRANDING' | 'MANTENCION') => {
     let list = TAREAS_MANTENCION
@@ -1300,10 +1292,8 @@ function NuevaOT({
                     }
                     if (p.tipo === 'SOFTWARE_A_MEDIDA') {
                       setTipo('DESARROLLO')
-                      cargarPreset('SOFTWARE')
                     } else {
                       setTipo('WEB_SOFTWARE')
-                      cargarPreset('WEB')
                     }
                     const cliProy = p.usuarioId ? db.usuarios.find((u) => u.id === p.usuarioId) : undefined
                     const empProy = p.empresaId ? db.empresas.find((emp) => emp.id === p.empresaId) : undefined
@@ -1483,8 +1473,9 @@ function NuevaOT({
           {/* Lista de Tareas Planificadas */}
           <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
             {tareasPlan.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-500">
-                No hay tareas en el planificador. Selecciona una plantilla arriba o agrega tareas personalizadas con el botón de abajo.
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-center space-y-1 text-xs text-slate-500">
+                <div className="text-base font-bold text-slate-700">Sin tareas precargadas</div>
+                <div>Haz clic abajo en <strong className="text-emerald-700">+ Agregar Fase / Tarea</strong> para añadirlas una a una, o selecciona una plantilla si lo deseas.</div>
               </div>
             ) : (
               tareasPlan.map((t, idx) => (
@@ -1620,12 +1611,22 @@ function ClientOTs() {
           {[...sc.ots].reverse().map((o) => {
             const idx = ESTADOS_OT.indexOf(o.estado)
             const tec = db.usuarios.find((u) => u.id === o.tecnicoId)
+            const proy = o.proyectoId ? db.proyectosWeb?.find((p) => p.id === o.proyectoId) : undefined
+            const tareas = (db.tareas ?? []).filter((t) => t.otId === o.id)
+            const hechas = tareas.filter((t) => t.estado === 'HECHA').length
+            const pct = tareas.length > 0 ? Math.round((hechas / tareas.length) * 100) : (o.estado === 'ENTREGADO' ? 100 : 0)
+
             return (
               <Card
                 key={o.id}
                 title={`${o.codigo} · ${o.titulo}`}
                 action={
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {proy && (
+                      <span className="rounded-lg bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-xs font-bold text-indigo-700">
+                        🚀 {proy.nombreProyecto} ({proy.codigo})
+                      </span>
+                    )}
                     {o.horaCita && (
                       <Badge tone="green">
                         🕒 Hora: {fmtFecha(o.inicio)} · {o.horaCita} hrs
@@ -1646,6 +1647,23 @@ function ClientOTs() {
                     </div>
                   ))}
                 </div>
+
+                {tareas.length > 0 && (
+                  <div className="mt-3.5 rounded-xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800">
+                        📋 Avance de Fases del Proyecto ({hechas} de {tareas.length} completadas)
+                      </span>
+                      <span className="font-extrabold text-emerald-700">{pct}% completado</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-5">
                   <div>
                     <span className="text-xs text-slate-400">Fecha y Hora Reservada</span><br />

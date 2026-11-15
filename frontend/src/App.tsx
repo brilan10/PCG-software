@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
 import Landing from '@/pages/Landing'
 import AuthPage from '@/pages/AuthPage'
 import EstadoPublico from '@/pages/EstadoPublico'
@@ -77,7 +77,7 @@ export default function App() {
             </AccessGuard>
           }
         />
-        <Route path="ots" element={<Navigate to="/app/ot" replace />} />
+        <Route path="ots" element={<RedirectOts />} />
 
         {/* Equipos de Hardware (Técnicos, Admins y Clientes) */}
         <Route
@@ -237,4 +237,10 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
+}
+
+function RedirectOts() {
+  const [params] = useSearchParams()
+  const s = params.toString()
+  return <Navigate to={`/app/ot${s ? `?${s}` : ''}`} replace />
 }

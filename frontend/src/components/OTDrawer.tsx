@@ -16,6 +16,10 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
   const { db, user, mutate } = useStore()
   const [tab, setTab] = useState<'tareas' | 'servicios' | 'calendario' | 'pago' | 'historial' | 'comentarios'>('tareas')
   const [nuevaTarea, setNuevaTarea] = useState('')
+  const [nuevaTareaAsignado, setNuevaTareaAsignado] = useState<number | undefined>(undefined)
+  const [nuevaTareaHoras, setNuevaTareaHoras] = useState<number>(2)
+  const [nuevaTareaPrio, setNuevaTareaPrio] = useState<Prioridad>('MEDIA')
+  const [nuevaTareaDepende, setNuevaTareaDepende] = useState<number | undefined>(undefined)
   const [comentario, setComentario] = useState('')
   const [intervOpen, setIntervOpen] = useState(false)
   const [servicioSel, setServicioSel] = useState<string>('')
@@ -35,6 +39,7 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
   const hechas = tareas.filter((t) => t.estado === 'HECHA').length
   const pct = tareas.length > 0 ? Math.round((hechas / tareas.length) * 100) : (ot.estado === 'ENTREGADO' ? 100 : 0)
   const workers = db.usuarios.filter((u) => u.rol === 'WORKER' && u.activo)
+  const staffWorkers = db.usuarios.filter((u) => ['ADMIN', 'DOC_PROCESS', 'WORKER'].includes(u.rol) && u.activo)
 
   const setTarea = (id: number, patch: Partial<Tarea>) =>
     mutate((d) => {
@@ -463,18 +468,18 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
                       <select
                         className={`${inputCls} !w-auto !py-1 text-xs`}
                         value={t.asignadoId ?? ''}
-                        disabled={!canManage}
+                        disabled={!canWork}
                         onChange={(e) => setTarea(t.id, { asignadoId: e.target.value ? Number(e.target.value) : undefined })}
                       >
                         <option value="">Sin asignar</option>
-                        {workers.map((x) => (
+                        {staffWorkers.map((x) => (
                           <option key={x.id} value={x.id}>
-                            {x.nombre} ({x.especialidad === 'DESARROLLADOR' ? '💻 Dev' : x.especialidad === 'DISENADOR' ? '🎨 Diseñadora' : '🔧 Téc'})
+                            {x.nombre} ({x.rol === 'ADMIN' ? 'Tech Lead' : x.especialidad === 'DESARROLLADOR' ? '💻 Dev' : x.especialidad === 'DISENADOR' ? '🎨 Diseñadora' : '🔧 Téc'})
                           </option>
                         ))}
                       </select>
                       {w && <Avatar name={w.nombre} color={w.color} size={22} />}
-                      {canManage && (
+                      {canWork && (
                         <button
                           type="button"
                           onClick={() => {
@@ -496,24 +501,112 @@ export default function OTDrawer({ otId, onClose }: { otId: number | null; onClo
             </ul>
           )}
 
-          {canManage && (
-            <form
-              className="mt-3 flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!nuevaTarea.trim()) return
-                mutate((d) => {
-                  d.tareas.push({
-                    id: nextId(d.tareas), otId: ot.id, titulo: nuevaTarea.trim(), estado: 'PENDIENTE', prioridad: 'MEDIA' as Prioridad,
-                    hEst: 2, inicio: today(), limite: addDays(today(), 2), asignadoId: ot.tecnicoId,
+          {canWork && (
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                  ➕ Añadir Fase / Tarea a esta OT
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Se actualizará en tiempo real en el portal del cliente
+                </span>
+              </div>
+              <form
+                className="space-y-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!nuevaTarea.trim()) return
+                  mutate((d) => {
+                    const newId = nextId(d.tareas)
+                    const lastTarea = d.tareas.filter((x) => x.otId === ot.id).slice(-1)[0]
+                    d.tareas.push({
+                      id: newId,
+                      otId: ot.id,
+                      titulo: nuevaTarea.trim(),
+                      estado: 'PENDIENTE',
+                      prioridad: nuevaTareaPrio,
+                      hEst: Number(nuevaTareaHoras) || 2,
+                      inicio: today(),
+                      limite: addDays(today(), 2),
+                      asignadoId: nuevaTareaAsignado ?? ot.tecnicoId,
+                      dependeDe: nuevaTareaDepende ?? (lastTarea ? lastTarea.id : undefined),
+                    })
                   })
-                })
-                setNuevaTarea('')
-              }}
-            >
-              <input className={inputCls} placeholder="Nueva fase o tarea para el planner…" value={nuevaTarea} onChange={(e) => setNuevaTarea(e.target.value)} />
-              <Btn type="submit">+ Agregar al Planner</Btn>
-            </form>
+                  setNuevaTarea('')
+                }}
+              >
+                <div className="flex gap-2">
+                  <input
+                    className={`${inputCls} flex-1 text-xs font-medium`}
+                    placeholder="Ej: Fase 4: Pruebas de integración, pasarela de pago y deploy…"
+                    value={nuevaTarea}
+                    onChange={(e) => setNuevaTarea(e.target.value)}
+                    required
+                  />
+                  <Btn type="submit" variant="primary">
+                    + Agregar al Planner
+                  </Btn>
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-semibold">Responsable:</span>
+                    <select
+                      className={`${inputCls} !w-auto !py-0.5 text-xs`}
+                      value={nuevaTareaAsignado ?? ot.tecnicoId ?? ''}
+                      onChange={(e) => setNuevaTareaAsignado(e.target.value ? Number(e.target.value) : undefined)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {staffWorkers.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.nombre} ({w.rol === 'ADMIN' ? 'Tech Lead' : w.especialidad === 'DESARROLLADOR' ? '💻 Dev' : w.especialidad === 'DISENADOR' ? '🎨 Diseñadora' : '🔧 Téc'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-semibold">Horas estimadas:</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      className={`${inputCls} !w-16 !py-0.5 text-center text-xs`}
+                      value={nuevaTareaHoras}
+                      onChange={(e) => setNuevaTareaHoras(Number(e.target.value) || 1)}
+                    />
+                    <span className="text-slate-400">hrs</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-semibold">Prioridad:</span>
+                    <select
+                      className={`${inputCls} !w-auto !py-0.5 text-xs`}
+                      value={nuevaTareaPrio}
+                      onChange={(e) => setNuevaTareaPrio(e.target.value as Prioridad)}
+                    >
+                      {['BAJA', 'MEDIA', 'ALTA', 'URGENTE'].map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {tareas.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 font-semibold">Dependencia:</span>
+                      <select
+                        className={`${inputCls} !w-auto !py-0.5 text-xs`}
+                        value={nuevaTareaDepende ?? ''}
+                        onChange={(e) => setNuevaTareaDepende(e.target.value ? Number(e.target.value) : undefined)}
+                      >
+                        <option value="">(Automática / Última fase)</option>
+                        {tareas.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.titulo.slice(0, 30)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
           )}
         </div>
       )}

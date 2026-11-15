@@ -25,6 +25,7 @@ import {
 } from '@/lib/inventarioMeta'
 import { addDays, diffDays, fmtCLP, fmtFecha, nextId, today } from '@/lib/util'
 import { Avatar, Badge, Btn, Card, Empty, Field, Modal, Table, cx, inputCls, td } from '@/components/kit'
+import OTDrawer from '@/components/OTDrawer'
 import {
   AnimatedNumber,
   AnimatedPillTabs,
@@ -36,7 +37,25 @@ import {
 
 export default function ProyectosPage() {
   const { db, user, mutate } = useStore()
-  const proyectos = db.proyectosWeb ?? []
+  const isClient = user?.rol === 'CLIENTE_EMPRESA' || user?.rol === 'CLIENTE_PERSONA'
+  const [selectedOtId, setSelectedOtId] = useState<number | null>(null)
+
+  const proyectos = useMemo(() => {
+    const raw = db.proyectosWeb ?? []
+    if (user?.rol === 'CLIENTE_EMPRESA') {
+      const emp = db.empresas.find((e) => e.id === user.empresaId)
+      return raw.filter((p) =>
+        p.empresaId === user.empresaId ||
+        p.usuarioId === user.id ||
+        (emp && p.clienteNombre.toLowerCase().includes(emp.razonSocial.toLowerCase()))
+      )
+    }
+    if (user?.rol === 'CLIENTE_PERSONA') {
+      return raw.filter((p) => p.usuarioId === user.id)
+    }
+    return raw
+  }, [db.proyectosWeb, user, db.empresas])
+
   const hoy = today()
   const esStaff = user && ['ADMIN', 'DOC_PROCESS', 'WORKER'].includes(user.rol)
 
@@ -56,7 +75,7 @@ export default function ProyectosPage() {
     [db.usuarios],
   )
 
-  // KPIs Financieros y Comerciales de los Proyectos Vendidos
+  // KPIs Financieros y Comerciales de los Proyectos
   const kpis = useMemo(() => {
     const totalVendido = proyectos.reduce((acc, p) => acc + (p.valorProyecto || 0), 0)
     const totalCobrado = proyectos.reduce((acc, p) => acc + (p.montoCobrado ?? p.valorProyecto ?? 0), 0)
@@ -81,6 +100,11 @@ export default function ProyectosPage() {
       (p) => !p.incluyeMantencionWeb || p.planMantencion === 'SIN_MENSUALIDAD',
     ).length
 
+    // OTs vinculadas a estos proyectos
+    const proyIds = new Set(proyectos.map((p) => p.id))
+    const otsProyecto = (db.ots ?? []).filter((o) => o.proyectoId && proyIds.has(o.proyectoId))
+    const otsTerminadas = otsProyecto.filter((o) => o.estado === 'ENTREGADO').length
+
     return {
       totalVendido,
       totalCobrado,
@@ -93,8 +117,10 @@ export default function ProyectosPage() {
       conMantencionCount,
       soloVentaCount,
       totalProyectos: proyectos.length,
+      otsProyectoCount: otsProyecto.length,
+      otsTerminadas,
     }
-  }, [proyectos])
+  }, [proyectos, db.ots])
 
   // Colaboradores y Personas Externas únicas registradas en los proyectos
   const personasExternasUnicas = useMemo(() => {
@@ -146,101 +172,184 @@ export default function ProyectosPage() {
           HEADER ANIMADO CON ACETERNITY BEAMS
          ===================================================================== */}
       <BackgroundBeamsHeader
-        badge="🚀 PROYECTOS VENDIDOS, DESARROLLOS WEB, SOFTWARE & INFRAESTRUCTURA"
-        title="Proyectos Realizados y Portafolio Comercial de PCG SPA"
-        subtitle="Registro de proyectos vendidos a empresas y clientes: montos de venta, participación de tu equipo (Brilan, Javier, Johan, Yovylin), alianzas con empresas externas y cobros de mantención web."
+        badge={isClient ? '🚀 TUS PLATAFORMAS WEB, SISTEMAS & SOFTWARE' : '🚀 PROYECTOS VENDIDOS, DESARROLLOS WEB, SOFTWARE & INFRAESTRUCTURA'}
+        title={isClient ? 'Mis Proyectos Web y Sistemas de Software' : 'Proyectos Realizados y Portafolio Comercial de PCG SPA'}
+        subtitle={
+          isClient
+            ? 'Seguimiento en vivo y en tiempo real del desarrollo, fases planificadas, órdenes de trabajo (OT) y mantención de tus plataformas.'
+            : 'Registro de proyectos vendidos a empresas y clientes: montos de venta, participación de tu equipo (Brilan, Javier, Johan, Yovylin), alianzas con empresas externas y cobros de mantención web.'
+        }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <MovingBorderBtn onClick={() => setModalForm({})}>
-              🚀 + Registrar Proyecto Vendido
-            </MovingBorderBtn>
-            <Link to="/app/empresas">
-              <Btn variant="secondary">🏢 Cartera Clientes</Btn>
-            </Link>
-            <Link to="/app/finanzas">
-              <Btn variant="secondary">💰 Ver en Finanzas</Btn>
-            </Link>
-          </div>
+          isClient ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Link to="/app/tickets?nuevo=1">
+                <MovingBorderBtn>
+                  📅 Agendar Reunión de Avance
+                </MovingBorderBtn>
+              </Link>
+              <Link to="/app/ot">
+                <Btn variant="secondary">📋 Mis Trabajos y OTs</Btn>
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <MovingBorderBtn onClick={() => setModalForm({})}>
+                🚀 + Registrar Proyecto Vendido
+              </MovingBorderBtn>
+              <Link to="/app/empresas">
+                <Btn variant="secondary">🏢 Cartera Clientes</Btn>
+              </Link>
+              <Link to="/app/finanzas">
+                <Btn variant="secondary">💰 Ver en Finanzas</Btn>
+              </Link>
+            </div>
+          )
         }
       />
 
       {/* =====================================================================
           KPIs SPOTLIGHT CARDS
          ===================================================================== */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SpotlightCard spotlightColor="rgba(16, 185, 129, 0.22)" className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold tracking-wider text-emerald-700 uppercase">
-              💰 Total Vendido en Proyectos
-            </span>
-            <Badge tone="green">{kpis.totalProyectos} proyectos</Badge>
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900">
-            <AnimatedNumber value={kpis.totalVendido} formatCLP />
-          </div>
-          <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-            <span>Cobrado: <strong className="text-emerald-700">{fmtCLP(kpis.totalCobrado)}</strong></span>
-            {kpis.porCobrar > 0 && (
-              <span className="font-semibold text-amber-700">Pendiente: {fmtCLP(kpis.porCobrar)}</span>
-            )}
-          </div>
-        </SpotlightCard>
-
-        <SpotlightCard spotlightColor="rgba(14, 165, 233, 0.2)" className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold tracking-wider text-sky-700 uppercase">
-              ⚡ Ejecución del Equipo PCG
-            </span>
-            <Badge tone="blue">{kpis.soloPCG} solo PCG</Badge>
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900">
-            <AnimatedNumber value={kpis.soloPCG} suffix=" proyectos 100% PCG" />
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            {kpis.conExterna > 0 ? (
-              <span>🤝 {kpis.conExterna} en alianza o subcontratados con empresas externas</span>
-            ) : (
-              <span>Todos los proyectos ejecutados con staff propio</span>
-            )}
-          </div>
-        </SpotlightCard>
-
-        <SpotlightCard spotlightColor="rgba(139, 92, 246, 0.2)" className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold tracking-wider text-violet-700 uppercase">
-              🤝 Alianzas y Empresas Externas
-            </span>
-            <Badge tone={kpis.conExterna > 0 ? 'violet' : 'slate'}>
-              {kpis.conExterna} con externa
-            </Badge>
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900">
-            <AnimatedNumber value={kpis.costoExternoTotal} formatCLP />
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Costo pagado a partners externos · Ganancia PCG:{' '}
-            <strong className="text-emerald-700">{fmtCLP(kpis.gananciaNetaProyectos)}</strong>
-          </div>
-        </SpotlightCard>
-
-        <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.2)" className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold tracking-wider text-amber-700 uppercase">
-              🔄 Mantenciones Web Recurrentes
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Badge tone="green">{kpis.soloVentaCount} solo venta</Badge>
-              <Badge tone="amber">{kpis.conMantencionCount} activas</Badge>
+      {isClient ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SpotlightCard spotlightColor="rgba(16, 185, 129, 0.22)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-emerald-700 uppercase">
+                🚀 Proyectos Contratados
+              </span>
+              <Badge tone="green">{kpis.totalProyectos} activos</Badge>
             </div>
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900">
-            <AnimatedNumber value={kpis.ingresoRecurrente} formatCLP suffix=" / ciclo" />
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Ingreso recurrente por actualización web, hosting, backups y soporte
-          </div>
-        </SpotlightCard>
-      </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.totalProyectos} suffix=" proyectos" />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Sistemas web, e-commerce y software a medida
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(14, 165, 233, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-sky-700 uppercase">
+                📋 Órdenes de Trabajo del Proyecto
+              </span>
+              <Badge tone="blue">{kpis.otsProyectoCount} OTs en vivo</Badge>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.otsProyectoCount} suffix=" OTs asociadas" />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              {kpis.otsTerminadas} fase(s) entregada(s) conforme
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(139, 92, 246, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-violet-700 uppercase">
+                👥 Equipo Técnico PCG
+              </span>
+              <Badge tone="violet">Asignado</Badge>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={staff.length} suffix=" profesionales" />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Desarrolladores, diseñadores y soporte técnico
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-amber-700 uppercase">
+                🛡️ Soporte y Mantención
+              </span>
+              <Badge tone={kpis.conMantencionCount > 0 ? 'green' : 'amber'}>
+                {kpis.conMantencionCount > 0 ? 'Activo' : 'Solo Venta'}
+              </Badge>
+            </div>
+            <div className="mt-2 text-xl font-black text-slate-900">
+              {kpis.conMantencionCount > 0 ? 'Mantención Activa' : 'Solo Venta de Sistema'}
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Monitoreo continuo, servidores y copias de seguridad
+            </div>
+          </SpotlightCard>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SpotlightCard spotlightColor="rgba(16, 185, 129, 0.22)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-emerald-700 uppercase">
+                💰 Total Vendido en Proyectos
+              </span>
+              <Badge tone="green">{kpis.totalProyectos} proyectos</Badge>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.totalVendido} formatCLP />
+            </div>
+            <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+              <span>Cobrado: <strong className="text-emerald-700">{fmtCLP(kpis.totalCobrado)}</strong></span>
+              {kpis.porCobrar > 0 && (
+                <span className="font-semibold text-amber-700">Pendiente: {fmtCLP(kpis.porCobrar)}</span>
+              )}
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(14, 165, 233, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-sky-700 uppercase">
+                ⚡ Ejecución del Equipo PCG
+              </span>
+              <Badge tone="blue">{kpis.soloPCG} solo PCG</Badge>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.soloPCG} suffix=" proyectos 100% PCG" />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              {kpis.conExterna > 0 ? (
+                <span>🤝 {kpis.conExterna} en alianza o subcontratados con empresas externas</span>
+              ) : (
+                <span>Todos los proyectos ejecutados con staff propio</span>
+              )}
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(139, 92, 246, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-violet-700 uppercase">
+                🤝 Alianzas y Empresas Externas
+              </span>
+              <Badge tone={kpis.conExterna > 0 ? 'violet' : 'slate'}>
+                {kpis.conExterna} con externa
+              </Badge>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.costoExternoTotal} formatCLP />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Costo pagado a partners externos · Ganancia PCG:{' '}
+              <strong className="text-emerald-700">{fmtCLP(kpis.gananciaNetaProyectos)}</strong>
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.2)" className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-amber-700 uppercase">
+                🔄 Mantenciones Web Recurrentes
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Badge tone="green">{kpis.soloVentaCount} solo venta</Badge>
+                <Badge tone="amber">{kpis.conMantencionCount} activas</Badge>
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900">
+              <AnimatedNumber value={kpis.ingresoRecurrente} formatCLP suffix=" / ciclo" />
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Ingreso recurrente por actualización web, hosting, backups y soporte
+            </div>
+          </SpotlightCard>
+        </div>
+      )}
 
       {/* =====================================================================
           TABS & FILTROS DE ANÁLISIS
@@ -603,47 +712,58 @@ export default function ProyectosPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
                             <span>📋</span>
-                            <span>Órdenes de Trabajo ({otsVinculadas.length})</span>
+                            <span>Órdenes de Trabajo del Proyecto ({otsVinculadas.length})</span>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                              En Tiempo Real
+                            </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {/* Selector para asociar OT existente al proyecto */}
-                            <select
-                              className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-2xs hover:border-emerald-500 focus:outline-none"
-                              defaultValue=""
-                              onChange={(e) => {
-                                const otId = Number(e.target.value)
-                                if (!otId) return
-                                mutate((draft) => {
-                                  const otToLink = draft.ots.find((o) => o.id === otId)
-                                  if (otToLink) otToLink.proyectoId = p.id
-                                })
-                                e.target.value = ''
-                              }}
-                            >
-                              <option value="">+ Asociar OT existente...</option>
-                              {db.ots
-                                .filter((o) => o.proyectoId !== p.id)
-                                .map((o) => (
-                                  <option key={o.id} value={o.id}>
-                                    {o.codigo} - {o.titulo} {o.proyectoId ? `(Reasignar)` : ''}
-                                  </option>
-                                ))}
-                            </select>
-                            <Link
-                              to={`/app/ots?nueva=1&proyectoId=${p.id}`}
-                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition hover:bg-emerald-700"
-                            >
-                              + Planificar OT
-                            </Link>
-                          </div>
+                          {!isClient && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {/* Selector para asociar OT existente al proyecto */}
+                              <select
+                                className="rounded-xl border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-2xs hover:border-emerald-500 focus:outline-none"
+                                defaultValue=""
+                                onChange={(e) => {
+                                  const otId = Number(e.target.value)
+                                  if (!otId) return
+                                  mutate((draft) => {
+                                    const otToLink = draft.ots.find((o) => o.id === otId)
+                                    if (otToLink) {
+                                      otToLink.proyectoId = p.id
+                                      if (p.empresaId && !otToLink.empresaId) otToLink.empresaId = p.empresaId
+                                      if (p.usuarioId && !otToLink.usuarioId) otToLink.usuarioId = p.usuarioId
+                                    }
+                                  })
+                                  e.target.value = ''
+                                }}
+                              >
+                                <option value="">+ Asociar OT existente...</option>
+                                {db.ots
+                                  .filter((o) => o.proyectoId !== p.id)
+                                  .map((o) => (
+                                    <option key={o.id} value={o.id}>
+                                      {o.codigo} - {o.titulo} {o.proyectoId ? `(Reasignar)` : ''}
+                                    </option>
+                                  ))}
+                              </select>
+                              <Link
+                                to={`/app/ot?nueva=1&proyectoId=${p.id}`}
+                                className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition hover:bg-emerald-700"
+                              >
+                                + Planificar OT
+                              </Link>
+                            </div>
+                          )}
                         </div>
 
                         {otsVinculadas.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-2.5 text-center text-xs text-slate-500">
-                            Sin OT asociada. Haz clic en <span className="font-bold text-emerald-700">+ Planificar OT</span> o asocia una existente arriba.
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-3 text-center text-xs text-slate-500">
+                            {isClient
+                              ? 'Aún no hay órdenes de trabajo activas asociadas a este proyecto. El equipo las publicará aquí en vivo con sus fases y avance.'
+                              : 'Sin OT asociada. Haz clic en + Planificar OT o asocia una existente arriba.'}
                           </div>
                         ) : (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {otsVinculadas.map((ot) => {
                               const tareas = (db.tareas ?? []).filter((t) => t.otId === ot.id)
                               const hechas = tareas.filter((t) => t.estado === 'HECHA').length
@@ -651,48 +771,65 @@ export default function ProyectosPage() {
                               const tec = db.usuarios.find((u) => u.id === ot.tecnicoId)
 
                               return (
-                                <div key={ot.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs">
-                                  <div className="flex items-center justify-between gap-1.5">
-                                    <span className="font-mono text-xs font-black text-indigo-700">{ot.codigo}</span>
-                                    <div className="flex items-center gap-1">
+                                <div key={ot.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+                                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono text-xs font-black text-indigo-700">{ot.codigo}</span>
                                       <Badge tone={otTone[ot.estado]}>{ESTADO_OT_LABEL[ot.estado]}</Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedOtId(ot.id)}
+                                        className="rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition shadow-2xs"
+                                        title="Ver fases y bitácora en vivo"
+                                      >
+                                        👁️ Ver Fases en Vivo →
+                                      </button>
                                       <Link
-                                        to={`/app/ots?ot=${ot.id}`}
+                                        to={`/app/ot?ot=${ot.id}`}
                                         className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-200"
                                       >
                                         Ver OT →
                                       </Link>
-                                      <button
-                                        type="button"
-                                        title="Desvincular OT de este proyecto"
-                                        onClick={() => {
-                                          mutate((draft) => {
-                                            const o = draft.ots.find((x) => x.id === ot.id)
-                                            if (o) o.proyectoId = undefined
-                                          })
-                                        }}
-                                        className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-100 transition"
-                                      >
-                                        ✕
-                                      </button>
+                                      {!isClient && (
+                                        <button
+                                          type="button"
+                                          title="Desvincular OT de este proyecto"
+                                          onClick={() => {
+                                            mutate((draft) => {
+                                              const o = draft.ots.find((x) => x.id === ot.id)
+                                              if (o) o.proyectoId = undefined
+                                            })
+                                          }}
+                                          className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-100 transition"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
-                                  <div className="mt-1 text-xs font-semibold text-slate-900 truncate">{ot.titulo}</div>
+                                  <div className="mt-1.5 text-xs font-semibold text-slate-900 truncate">{ot.titulo}</div>
                                   {tareas.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                      <div className="flex items-center justify-between text-[10px]">
-                                        <span className="text-slate-500">Avance de fases</span>
-                                        <span className="font-extrabold text-emerald-700">{hechas}/{tareas.length} ({pct}%)</span>
+                                    <div className="mt-2 rounded-lg bg-slate-50 p-2 space-y-1">
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-slate-600">Avance de ejecución de fases:</span>
+                                        <span className="font-black text-emerald-700">{hechas} de {tareas.length} completadas ({pct}%)</span>
                                       </div>
-                                      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                                         <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 transition-all duration-300" style={{ width: `${pct}%` }} />
                                       </div>
                                     </div>
                                   )}
                                   {tec && (
-                                    <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-600">
-                                      <span>Responsable:</span>
-                                      <span className="font-semibold text-slate-800">{tec.nombre}</span>
+                                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                                      <div>
+                                        <span>Responsable: </span>
+                                        <span className="font-semibold text-slate-700">{tec.nombre}</span>
+                                      </div>
+                                      {ot.fin && (
+                                        <span>Entrega est.: <strong className="text-slate-700">{fmtFecha(ot.fin)}</strong></span>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -757,40 +894,59 @@ export default function ProyectosPage() {
 
                 {/* Footer Acciones */}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setModalForm({ proyecto: p })}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50"
-                    >
-                      ✎ Editar Proyecto
-                    </button>
-                    <Link
-                      to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
-                      className="rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-800 hover:bg-indigo-100"
-                    >
-                      📅 Agendar Reunión
-                    </Link>
-                    <Link
-                      to="/app/finanzas"
-                      className="rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
-                    >
-                      $ Factura / Cobro
-                    </Link>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!confirm(`¿Eliminar el proyecto "${p.nombreProyecto}" de ${p.clienteNombre}?`)) return
-                      mutate((d) => {
-                        d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
-                      })
-                    }}
-                    className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                    title="Eliminar"
-                  >
-                    ✕
-                  </button>
+                  {isClient ? (
+                    <div className="flex flex-wrap items-center justify-between w-full gap-2">
+                      <Link
+                        to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
+                        className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 hover:bg-indigo-100 transition shadow-2xs"
+                      >
+                        📅 Agendar Reunión de Avance
+                      </Link>
+                      <Link
+                        to="/app/ot"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                      >
+                        📋 Mis Trabajos y OTs →
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setModalForm({ proyecto: p })}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50"
+                        >
+                          ✎ Editar Proyecto
+                        </button>
+                        <Link
+                          to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Reunión de Avance: ${p.nombreProyecto} (${p.codigo})`)}`}
+                          className="rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-800 hover:bg-indigo-100"
+                        >
+                          📅 Agendar Reunión
+                        </Link>
+                        <Link
+                          to="/app/finanzas"
+                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+                        >
+                          $ Factura / Cobro
+                        </Link>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!confirm(`¿Eliminar el proyecto "${p.nombreProyecto}" de ${p.clienteNombre}?`)) return
+                          mutate((d) => {
+                            d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
+                          })
+                        }}
+                        className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                        title="Eliminar"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
                 </div>
               </Tilt3DCard>
             )
@@ -939,12 +1095,14 @@ export default function ProyectosPage() {
                       <div className="space-y-1.5 min-w-[140px]">
                         <div className="flex items-center justify-between gap-1">
                           <span className="text-[11px] font-bold text-slate-700">OTs ({otsVinculadas.length})</span>
-                          <Link
-                            to={`/app/ots?nueva=1&proyectoId=${p.id}`}
-                            className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100"
-                          >
-                            + OT
-                          </Link>
+                          {!isClient && (
+                            <Link
+                              to={`/app/ot?nueva=1&proyectoId=${p.id}`}
+                              className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100"
+                            >
+                              + OT
+                            </Link>
+                          )}
                         </div>
                         {otsVinculadas.map((ot) => {
                           const tareas = (db.tareas ?? []).filter((t) => t.otId === ot.id)
@@ -954,9 +1112,14 @@ export default function ProyectosPage() {
                           return (
                             <div key={ot.id} className="rounded-lg border border-slate-200 bg-white p-1.5 text-xs shadow-2xs">
                               <div className="flex items-center justify-between gap-1">
-                                <Link to={`/app/ots?ot=${ot.id}`} className="font-mono text-[11px] font-bold text-indigo-700 hover:underline">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOtId(ot.id)}
+                                  className="font-mono text-[11px] font-bold text-indigo-700 hover:underline cursor-pointer"
+                                  title="Ver detalle y fases en tiempo real"
+                                >
                                   {ot.codigo}
-                                </Link>
+                                </button>
                                 <Badge tone={otTone[ot.estado]}>{ESTADO_OT_LABEL[ot.estado]}</Badge>
                               </div>
                               {tareas.length > 0 && (
@@ -999,25 +1162,44 @@ export default function ProyectosPage() {
 
                 <td className={`${td} text-right`}>
                   <div className="flex flex-wrap justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setModalForm({ proyecto: p })}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!confirm(`¿Eliminar "${p.nombreProyecto}"?`)) return
-                        mutate((d) => {
-                          d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
-                        })
-                      }}
-                      className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                    >
-                      ✕
-                    </button>
+                    {isClient ? (
+                      (() => {
+                        const pOts = (db.ots ?? []).filter((o) => o.proyectoId === p.id)
+                        return pOts.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOtId(pOts[0].id)}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+                          >
+                            👁️ Ver Fases OT
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-400">En desarrollo</span>
+                        )
+                      })()
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setModalForm({ proyecto: p })}
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!confirm(`¿Eliminar "${p.nombreProyecto}"?`)) return
+                            mutate((d) => {
+                              d.proyectosWeb = (d.proyectosWeb ?? []).filter((x) => x.id !== p.id)
+                            })
+                          }}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1035,6 +1217,11 @@ export default function ProyectosPage() {
           empresaIdInicial={modalForm.empresaIdInicial}
           onClose={() => setModalForm(null)}
         />
+      )}
+
+      {/* Drawer de Seguimiento de OT y Fases en Tiempo Real */}
+      {selectedOtId && (
+        <OTDrawer otId={selectedOtId} onClose={() => setSelectedOtId(null)} />
       )}
     </div>
   )

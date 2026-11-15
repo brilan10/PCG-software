@@ -13,7 +13,25 @@ export function useScope() {
 
     const equipos: Equipo[] = staff ? db.equipos : db.equipos.filter(mine)
     const equipoIds = new Set(equipos.map((e) => e.id))
-    const ots = staff ? db.ots : db.ots.filter(mine)
+    const ots = staff
+      ? db.ots
+      : db.ots.filter((o) => {
+          if (u.rol === 'CLIENTE_EMPRESA') {
+            if (o.empresaId && o.empresaId === u.empresaId) return true
+            if (o.usuarioId === u.id) return true
+            if (o.proyectoId) {
+              const proy = db.proyectosWeb?.find((p) => p.id === o.proyectoId)
+              if (proy && (proy.empresaId === u.empresaId || proy.usuarioId === u.id)) return true
+            }
+            return false
+          }
+          if (o.usuarioId === u.id) return true
+          if (o.proyectoId) {
+            const proy = db.proyectosWeb?.find((p) => p.id === o.proyectoId)
+            if (proy && proy.usuarioId === u.id) return true
+          }
+          return false
+        })
     const informes: Informe[] = staff
       ? db.informes
       : db.informes.filter(
