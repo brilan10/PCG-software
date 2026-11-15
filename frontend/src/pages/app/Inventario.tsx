@@ -2024,7 +2024,7 @@ export function ModalProyectoWebSoftware({
     String(proyecto?.responsableId ?? 1),
   )
   const [notas, setNotas] = useState(proyecto?.notas ?? '')
-  const [registrarIngresoCaja, setRegistrarIngresoCaja] = useState(!isEdit)
+  const [registrarIngresoCaja, setRegistrarIngresoCaja] = useState(true)
 
   const handleSelectEmpresa = (idStr: string) => {
     setEmpresaId(idStr)
@@ -2092,23 +2092,105 @@ export function ModalProyectoWebSoftware({
               notas: notas.trim() || undefined,
             }
 
+            const valProyNum = Number(valorProyecto) || 0
+            const montoNeto = Math.round(valProyNum / 1.19)
+            const montoIva = valProyNum - montoNeto
+
             if (isEdit) {
               const idx = d.proyectosWeb.findIndex((x) => x.id === proyecto.id)
               if (idx >= 0) d.proyectosWeb[idx] = payload
             } else {
               d.proyectosWeb.unshift(payload)
-              if (registrarIngresoCaja && payload.valorProyecto > 0) {
+            }
+
+            if (registrarIngresoCaja) {
+              if (!d.facturas) d.facturas = []
+              if (!d.movimientos) d.movimientos = []
+
+              // 1. Sincronizar Factura
+              const facIdx = d.facturas.findIndex((f) =>
+                (payload.codigo && f.concepto.includes(payload.codigo)) ||
+                (proyecto?.codigo && f.concepto.includes(proyecto.codigo)) ||
+                (proyecto?.id && f.concepto.toLowerCase().includes(proyecto.nombreProyecto.toLowerCase().slice(0, 20)))
+              )
+
+              let facRefId: number | undefined
+              if (facIdx >= 0) {
+                facRefId = d.facturas[facIdx].id
+                d.facturas[facIdx] = {
+                  ...d.facturas[facIdx],
+                  empresaId: payload.empresaId ?? d.facturas[facIdx].empresaId,
+                  usuarioId: payload.usuarioId ?? d.facturas[facIdx].usuarioId,
+                  contraparteNombre: payload.clienteNombre,
+                  concepto: `Proyecto ${payload.nombreProyecto} (${payload.codigo})`,
+                  montoTotal: valProyNum,
+                  montoNeto,
+                  montoIva,
+                  montoPagado: valProyNum,
+                  estado: 'PAGADA',
+                  fechaUltimoPago: payload.fechaInicio,
+                }
+              } else if (valProyNum > 0) {
+                facRefId = nextId(d.facturas)
+                d.facturas.push({
+                  id: facRefId,
+                  folio: `FAC-${1040 + d.facturas.length}`,
+                  direccion: 'POR_COBRAR',
+                  tipoDoc: 'FACTURA_AFECTA',
+                  empresaId: payload.empresaId,
+                  usuarioId: payload.usuarioId,
+                  contraparteNombre: payload.clienteNombre,
+                  contraparteRut: emp?.rut || '77.412.980-5',
+                  concepto: `Proyecto ${payload.nombreProyecto} (${payload.codigo})`,
+                  categoria: 'Desarrollo Web & Software',
+                  fechaEmision: payload.fechaInicio,
+                  fechaVencimiento: addDays(payload.fechaInicio, 30),
+                  montoNeto,
+                  montoIva,
+                  montoTotal: valProyNum,
+                  montoPagado: valProyNum,
+                  estado: 'PAGADA',
+                  metodoPago: 'TRANSFERENCIA',
+                  fechaUltimoPago: payload.fechaInicio,
+                  notas: `Factura vinculada a proyecto ${payload.codigo}`,
+                })
+              }
+
+              // 2. Sincronizar Movimiento de Caja
+              const facTarget = facIdx >= 0 ? d.facturas[facIdx] : undefined
+              const movIdx = d.movimientos.findIndex((m) =>
+                (facRefId && m.facturaId === facRefId) ||
+                (facTarget && m.concepto.includes(facTarget.folio)) ||
+                (payload.codigo && m.concepto.includes(payload.codigo)) ||
+                (proyecto?.codigo && m.concepto.includes(proyecto.codigo)) ||
+                (proyecto?.id && m.concepto.toLowerCase().includes(proyecto.nombreProyecto.toLowerCase().slice(0, 20)))
+              )
+
+              if (movIdx >= 0) {
+                if (valProyNum > 0) {
+                  d.movimientos[movIdx] = {
+                    ...d.movimientos[movIdx],
+                    monto: valProyNum,
+                    contraparte: payload.clienteNombre,
+                    concepto: `Venta ${TIPO_PROYECTO_WEB_META[tipo].short} (${payload.codigo}): ${payload.nombreProyecto}`,
+                    fecha: payload.fechaInicio,
+                  }
+                } else {
+                  d.movimientos.splice(movIdx, 1)
+                }
+              } else if (valProyNum > 0) {
                 d.movimientos.push({
                   id: nextId(d.movimientos),
-                  fecha: fechaInicio,
+                  fecha: payload.fechaInicio,
                   tipo: 'INGRESO',
                   rubro: 'INGRESO_OT',
                   categoria: 'Desarrollo Web & Software',
                   concepto: `Venta ${TIPO_PROYECTO_WEB_META[tipo].short} (${payload.codigo}): ${payload.nombreProyecto}`,
                   contraparte: payload.clienteNombre,
-                  monto: payload.valorProyecto,
+                  monto: valProyNum,
                   metodo: 'TRANSFERENCIA',
                   conciliadoBanco: true,
+                  facturaId: facRefId,
                 })
               }
             }
@@ -2391,19 +2473,17 @@ export function ModalProyectoWebSoftware({
           />
         </Field>
 
-        {!isEdit && (
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-800">
-            <input
-              type="checkbox"
-              checked={registrarIngresoCaja}
-              onChange={(e) => setRegistrarIngresoCaja(e.target.checked)}
-              className="h-4 w-4 rounded accent-emerald-600"
-            />
-            <span>
-              💰 Registrar cobro del proyecto en Finanzas / Libro de Caja (+{fmtCLP(valorProyecto)})
-            </span>
-          </label>
-        )}
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-800">
+          <input
+            type="checkbox"
+            checked={registrarIngresoCaja}
+            onChange={(e) => setRegistrarIngresoCaja(e.target.checked)}
+            className="h-4 w-4 rounded accent-emerald-600"
+          />
+          <span>
+            💰 {isEdit ? 'Sincronizar y actualizar automáticamente cobro en Finanzas / Libro de Caja' : 'Registrar cobro del proyecto en Finanzas / Libro de Caja'} (+{fmtCLP(valorProyecto)})
+          </span>
+        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Btn type="button" variant="secondary" onClick={onClose}>

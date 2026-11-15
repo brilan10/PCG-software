@@ -1,0 +1,501 @@
+================================================================================
+GUIA MAESTRA DE TESTING PASO A PASO - SISTEMA PCG SPA
+================================================================================
+Fecha: Noviembre 2026
+Servidor Local:   http://localhost:5173/
+API Backend PHP:  http://127.0.0.1:8000/api/db.php
+Base de Datos:    MySQL / MariaDB (pcg_software)
+Credenciales:     Todas las contraseñas son: pcg123
+================================================================================
+
+INDICE DE PRUEBAS:
+  FASE 0: INICIO DE SESION Y ROLES LIMPIOS
+  FASE 1: NUEVA FUNCIONALIDAD: AGENDAR HORA + SOLICITAR RETIRO A DOMICILIO CON DIRECCION
+  FASE 2: NUEVA FUNCIONALIDAD: PROYECTO WEB/SOFTWARE EN MODALIDAD "SOLO VENTA" + PROYECTO MAINSA
+  FASE 3: NUEVA FUNCIONALIDAD: CATALOGO DE PRECIOS DIFERENCIADO (CLIENTES VS EMPRESAS)
+  FASE 4: DASHBOARD GENERAL Y MONITOR EN TIEMPO REAL
+  FASE 5: FINANZAS Y FACTURACION SII (LIBRO DE CAJA + FACTURA MAINSA)
+  FASE 6: INVENTARIO, HERRAMIENTAS Y BOVEDA DE LICENCIAS DIGITALES
+  FASE 7: PLANNER DE ORDENES DE TRABAJO (KANBAN OT)
+  FASE 8: TICKETS DE MESA DE AYUDA Y CONVERSION A OT
+  FASE 9: GENERACION DE COTIZACIONES FORMALES
+  FASE 10: CARTERA DE CLIENTES / EMPRESAS B2B (CRM)
+  FASE 11: PARQUE DE EQUIPOS Y BITACORA TECNICA
+  FASE 12: MOTOR DE ALERTAS PREVENTIVAS SEMESTRALES
+  FASE 13: INFORMES TECNICOS PROFESIONALES IMPRIMIBLES / PDF
+  FASE 14: PERSONAL, ROLES Y HABILITACIONES INTERNAS (CEO ONLY)
+  FASE 15: AUDITORIA Y TRAZABILIDAD DE CORREOS ENVIADOS
+  FASE 16: TARJETAS DEL EQUIPO PCG
+
+================================================================================
+FASE 0: TEST DE INICIO DE SESION LIMPIO (SIN BOTONES DEMO)
+================================================================================
+URL: http://localhost:5173/login
+
+• TEST 0.1: Ingreso por Correo Electrónico
+  1. Abre http://localhost:5173/login
+  2. En el campo "Correo electrónico o RUT" escribe: brilan@pcg.cl
+  3. En la contraseña escribe: pcg123
+  4. Haz click en "Iniciar Sesión en PCG SPA"
+  >> RESULTADO ESPERADO: 
+     - Ingresa directamente al Dashboard sin errores.
+     - La esquina superior muestra: "Brilan Bugueño (👑 CEO / Fundador & Administrador)".
+     - No existen botones ni etiquetas que digan "Demo".
+
+• TEST 0.2: Ingreso alternativo por RUT
+  1. Cierra sesión haciendo click en el botón rojo de Salir abajo a la izquierda.
+  2. En "Correo electrónico o RUT" escribe: 18.234.567-8
+  3. En la contraseña escribe: pcg123
+  4. Presiona Enter o el botón Iniciar Sesión.
+  >> RESULTADO ESPERADO:
+     - El sistema reconoce el RUT y entra con el perfil de Administrador CEO con éxito.
+
+• TEST 0.3: Ingreso como Cliente Corporativo (Mainsa SpA) y Portal de Proyectos
+  1. Cierra sesión.
+  2. En "Correo electrónico o RUT" escribe: contacto@mainsa.cl (o el RUT: 77.412.980-5)
+  3. En la contraseña escribe: pcg123
+  4. Presiona Iniciar Sesión.
+  >> RESULTADO ESPERADO:
+     - Entra al "Portal Corporativo de Clientes · PCG SPA" de Mainsa SpA.
+     - En el Dashboard verá la sección: "🚀 Mis Proyectos Web & Software Desarrollados con PCG".
+     - Podrá ver su proyecto "Bodega De Oficina - Taller Mecánico - Lavadero (WEB-2026-007)", su estado actual (ej: "En Desarrollo", "En Proceso" o "En Actualización"), y el enlace a https://sistemamainsa.cl/.
+     - Podrá presionar el botón "📅 Agendar Reunión sobre Proyecto" para solicitar soporte o reunión directamente a PCG.
+
+================================================================================
+FASE 1: AGENDAR HORA + SOLICITAR RETIRO A DOMICILIO CON DIRECCION
+================================================================================
+URL: http://localhost:5173/ (Landing Page) o botón "📅 Agendar Hora" en el Dashboard.
+
+• TEST 1.1: Agendar hora con Retiro a Domicilio (Persona Natural)
+  1. Estando en el Dashboard (/app) haz click en el botón verde superior:
+     "📅 Agendar Hora de Mantención" (o en la tarjeta rápida de la derecha).
+  2. En la pestaña selecciona: "Soy Persona Natural (Particular)".
+  3. LLENA LOS SIGUIENTES DATOS EXACTOS:
+     - Tu nombre completo: Matías Soto Valenzuela
+     - RUT Persona Natural: 19.442.810-3
+     - Correo electrónico: matias.soto@gmail.com
+     - Teléfono / WhatsApp: +56 9 8765 4321
+     - Servicio Requerido: Haz click en la tarjeta:
+       [ Mantención Preventiva Completa + Pasta Térmica  $45.000 ]
+     - Bloque Horario: Elige el día sugerido (ej. 12 nov 2026) y la hora: [ 10:30 ]
+  4. EN LA MODALIDAD DE ATENCION:
+     - Haz click en el botón derecho: [ 🚗 Solicitar Retiro / Domicilio ]
+  5. COMPRUEBA EL RESULTADO VISUAL INMEDIATO:
+     - Se despliega automáticamente el recuadro verde esmeralda con el título:
+       "📍 Dirección para Retiro a Domicilio (Requerido)".
+  6. PRUEBA DE VALIDACION OBLIGATORIA:
+     - Deja el campo de dirección en blanco y haz click en "Confirmar Hora y Generar OT".
+     >> RESULTADO ESPERADO: El sistema detiene el envío y te exige ingresar la dirección.
+  7. AHORA INGRESA LA DIRECCION Y DATOS DEL EQUIPO:
+     - Dirección completa (Calle, Número, Depto/Oficina):
+       Av. Providencia 1234, Depto 502
+     - Comuna / Ciudad:
+       Providencia, Santiago
+     - Referencia para el técnico o chofer:
+       Portón negro con timbre 502, dejar pasar con conserjería
+     - Tipo de equipo: Laptop / Notebook
+     - Marca: ASUS
+     - Modelo: ZenBook 14 OLED
+     - Síntomas: Se calienta mucho y los ventiladores suenan fuerte al abrir Chrome
+
+  8. Haz click en el botón verde: "✓ Confirmar Hora y Generar OT".
+     >> RESULTADO VISUAL: El formulario se valida y avanza limpiamente al Paso Final de confirmación de cuenta.
+
+  9. PASO FINAL: VALIDACION DE CUENTA Y CONTRASEÑA (APARECE TRAS PRESIONAR EL BOTON VERDE):
+     - Caso A (Cliente Nuevo - primera vez que agenda):
+       * Aparece el recuadro: "🔐 Crea tu contraseña para tu Portal de Cliente".
+       * Escribe tu contraseña (ej: pcg123) y confírmala en el segundo campo.
+       * Haz click en "✓ Confirmar Hora y Abrir Mi Portal".
+     - Caso B (Cliente Ya Registrado):
+       * El sistema detecta su cuenta: "👋 ¡Hola de nuevo, [Nombre]!".
+       * Te solicita: "Ingresa tu contraseña para confirmar la cita y acceder a tu portal: *".
+       * Escribe tu contraseña (o pcg123 si nunca la has cambiado) y haz click en "✓ Confirmar Hora y Abrir Mi Portal".
+       * Si ingresas una errónea, el sistema te lo indicará de forma clara.
+
+  >> RESULTADO ESPERADO FINAL:
+     1. El sistema valida las credenciales y muestra la notificación: "¡Hora agendada y OT generada con éxito!".
+     2. El cliente queda registrado con su contraseña personalizada en la Cartera de Clientes.
+     3. Se inicia sesión automáticamente y la SESION QUEDA GUARDADA en el navegador (permanece abierta aunque recargues la página con F5 o cierres y abras la pestaña).
+     4. El cliente entra a su portal personal (/app/trabajos) donde visualiza su Orden de Trabajo (PCG-2026-XXXX) con seguimiento en vivo.
+     5. La OT y el Ticket contienen la etiqueta "🚗 Domicilio" y la dirección completa con referencias.
+     6. Si el cliente va al menú lateral a "Mis Facturas / Mis Boletas", YA NO MUESTRA "Acceso no autorizado", sino que ve sus cobros y facturas correspondientes con total seguridad.
+     7. En Auditoría de Correos (/app/correos) queda constancia del correo de confirmación enviado a matias.soto@gmail.com.
+
+• TEST 1.2: Recordatorio de Seguridad (Clave pcg123) y Apartado de Cambio de Contraseña
+  1. Al acceder al sistema con la clave inicial 'pcg123':
+     >> RESULTADO ESPERADO:
+     - Se despliega en la parte superior el banner ámbar de recordatorio:
+       "⚠️ Seguridad de tu cuenta: Tu contraseña actual es la clave inicial temporal (pcg123)..."
+     - Con el botón directo: [ 🔑 Cambiar Contraseña Ahora ].
+     - NOTA: Si el cliente ya tiene una contraseña personalizada distinta a pcg123, NO SE MUESTRA NINGUN AVISO.
+  2. Haz click en el botón del banner o en la nueva opción del Menú Lateral: "🔑 Cambiar Contraseña" (o botón "🔑 Clave" abajo a la izquierda).
+  3. LLENA LOS DATOS:
+     - Contraseña Actual: pcg123
+     - Nueva Contraseña: MiClaveSegura2026
+     - Confirmar Nueva Contraseña: MiClaveSegura2026
+  4. Haz click en "✓ Guardar Nueva Contraseña".
+     >> RESULTADO ESPERADO:
+     - Mensaje de éxito: "✓ ¡Contraseña actualizada con éxito! Tu nueva clave está activa."
+     - El banner de advertencia superior desaparece de inmediato.
+     - El estado de la cuenta pasa a: "🛡️ Tu cuenta cuenta con contraseña personalizada".
+
+================================================================================
+FASE 2: PROYECTOS WEB/SOFTWARE - "SOLO VENTA" Y PROYECTO MAINSA SPA
+================================================================================
+URL: http://localhost:5173/app/proyectos (o pestaña dentro de /app/inventario)
+Usuario: brilan@pcg.cl
+
+• TEST 2.1: Verificar que el proyecto de Mainsa SpA está intacto y pagado
+  1. Entra a http://localhost:5173/app/proyectos
+  2. En el buscador escribe: Mainsa
+  >> RESULTADO ESPERADO:
+     - Aparece la tarjeta del proyecto:
+       Código: WEB-2026-007
+       Cliente: Mainsa (Mainsa SpA - Bodega y Oficina)
+       Proyecto: Bodega De Oficina - Taller Mecánico - Lavadero
+       Valor: $2.000.000 CLP (100% Pagado)
+       Servidor: WebHost Chile (https://sistemamainsa.cl/)
+       Estado: ✓ Proyecto Entregado Conforme
+
+• TEST 2.2: Crear un Nuevo Software en modalidad "Solo Venta (Sin mensualidad)"
+  1. Haz click en el botón superior: "+ Nuevo Proyecto Web / Software".
+  2. LLENA LOS SIGUIENTES DATOS EXACTOS:
+     - Código: SOFT-2026-008
+     - Empresa / Cliente: Mainsa SpA - Bodega y Oficina (o selecciona del menú)
+     - Nombre del Proyecto: Módulo Terminal de Punto de Venta Touch y Boletas
+     - Tipo de Proyecto: Sistema / Software a Medida
+     - URL / Dominio: https://pos.sistemamainsa.cl
+     - Stack Tecnológico: Electron + React + Node + Impresora Térmica
+     - Servidor / Hosting: Servidor Local Taller Mainsa
+     - Valor del Desarrollo / Venta: 1200000 (sin puntos)
+     - Estado del Cobro: 100% Pagado
+  3. CONFIGURACION DE MODALIDAD (LA MEJORA):
+     - En el menú desplegable "Periodicidad / Plan" selecciona:
+       "📦 Solo venta del sistema (Sin mensualidad)"
+       (O pulsa el botón rápido verde: "📦 Solo Venta (Sin mensualidad)").
+  4. OBSERVA EL COMPORTAMIENTO:
+     - El recuadro de Mantención Web se desactiva y el Monto de Mantención cambia a $0.
+     - Aparece el mensaje informativo azul:
+       "Modalidad: Solo Venta del Sistema / Software. Cobro único por desarrollo, entrega o licencia. No genera facturación recurrente mensual ni alertas."
+  5. Marca la casilla:
+     [✓] Registrar automáticamente este cobro en Finanzas / Libro de Caja (+$1.200.000)
+  6. Haz click en "Guardar Proyecto Web".
+
+  >> RESULTADO ESPERADO:
+     1. El proyecto aparece en la lista con el badge morado: "📦 Solo venta (Sin mensualidad)".
+     2. En los KPIs superiores, el contador "Solo Venta" sube a 2 proyectos.
+     3. El "Monto Recurrente Mensual" NO se infla (sigue en su valor real de convenios mensuales).
+     4. En Finanzas (/app/finanzas) se registra de inmediato el ingreso de +$1.200.000 por la venta.
+
+• TEST 2.3: Modificar Estado del Proyecto en 1 Clic + Asociar OTs + Agendar Reunión
+  1. En http://localhost:5173/app/proyectos busca la tarjeta del proyecto Mainsa ("WEB-2026-007").
+  2. En la esquina superior derecha de la tarjeta, verás el selector de estado desplegable.
+  3. Haz click y cámbialo a: "🔄 En Proceso" o "⚙️ En Actualización / Mejoras" o "🛠️ En Desarrollo / QA".
+  >> RESULTADO ESPERADO:
+     - El estado cambia inmediatamente en vivo sin recargar la página.
+  4. En la sección "Órdenes de Trabajo" de la tarjeta:
+     - Verás las OTs ya asociadas a Mainsa (ej: PCG-2026-8921 y PCG-2026-8924).
+     - Despliega el selector "+ Asociar OT existente..." y selecciona cualquier otra OT.
+  >> RESULTADO ESPERADO:
+     - La OT se vincula al instante al proyecto y se suma a la lista.
+     - Puedes hacer click en el botón rojo "✕" de cualquier OT para desvincularla en 1 segundo.
+  5. Haz click en el botón azul: "📅 Agendar Reunión".
+  >> RESULTADO ESPERADO:
+     - Te redirige a la creación de un Ticket con el asunto pre-llenado: "Reunión de Avance: Bodega De Oficina - Taller Mecánico - Lavadero (WEB-2026-007)".
+
+================================================================================
+FASE 3: CATALOGO DE PRECIOS CON COLUMNAS SEPARADAS (CLIENTES VS EMPRESAS)
+================================================================================
+URL: http://localhost:5173/app/catalogo
+Usuario: brilan@pcg.cl o yovylin@pcg.cl
+
+• TEST 3.1: Verificar separación de tarifas en la matriz
+  1. Entra a http://localhost:5173/app/catalogo
+  2. Observa la tabla de servicios. Verifica que existen las columnas diferenciadas:
+     - Columna 1: CÓDIGO
+     - Columna 2: SERVICIO Y DESCRIPCION
+     - Columna 3: TARIFA PERSONA / CLIENTE (Color Verde) -> ej. Mantención PC: $45.000
+     - Columna 4: TARIFA EMPRESA B2B (Color Azul Índigo) -> ej. Mantención PC: $55.000
+     - Columna 5: TARIFA CONVENIO (Preferencial) -> ej. Mantención PC: $40.000
+     - Columna 6: COSTO INTERNO (Solo visible para CEO / Finanzas) -> $0 o insumos netos.
+  3. Modifica un precio en vivo:
+     - En el servicio "Mantención Preventiva de Hardware de PC", cambia la Tarifa Empresa B2B a: 60000
+     - Haz click fuera del campo o presiona Guardar.
+  >> RESULTADO ESPERADO:
+     - El precio se actualiza al instante en la base de datos sin recargar la página.
+     - Al cotizar para una empresa, el sistema tomará la tarifa de empresa ($60.000).
+
+================================================================================
+FASE 4: DASHBOARD GENERAL Y MONITOR EN TIEMPO REAL
+================================================================================
+URL: http://localhost:5173/app
+Usuario: brilan@pcg.cl
+
+• TEST 4.1: Monitoreo ejecutivo
+  1. Abre el Dashboard.
+  2. Revisa las 4 tarjetas superiores:
+     - Facturación / Ingresos Totales
+     - Órdenes de Trabajo Activas
+     - Parque de Equipos Registrados
+     - Saldo de Cuentas por Cobrar
+  3. Comprueba los accesos rápidos:
+     - Click en "📋 Crear Nueva Orden de Trabajo" -> Debe abrir el modal de creación de OT.
+     - Click en "🏷️ Cotización Rápida con Descuento" -> Debe redirigir a Cotizaciones.
+  >> RESULTADO ESPERADO:
+     - Los gráficos cargan con animaciones fluidas de Aceternity UI.
+     - Los valores concuerdan con la base de datos limpia de PCG SPA.
+
+================================================================================
+FASE 5: FINANZAS Y FACTURACION SII (LIBRO DE CAJA)
+================================================================================
+URL: http://localhost:5173/app/finanzas
+Usuario: brilan@pcg.cl o yovylin@pcg.cl (Privado)
+
+• TEST 5.1: Factura de Mainsa SpA y Movimientos
+  1. Entra a http://localhost:5173/app/finanzas
+  2. En la pestaña "Facturas y Documentos SII", busca la factura: FAC-1040.
+  >> RESULTADO ESPERADO:
+     - Emisor: PCG SPA (RUT 77.654.321-K)
+     - Receptor: Mainsa SpA (RUT 77.412.980-5)
+     - Glosa: Proyecto Web Bodega de Oficina y Taller Mecánico Mainsa
+     - Total: $2.000.000 CLP (Estado: ✓ PAGADA vía Transferencia).
+  
+• TEST 5.2: Registrar un nuevo Gasto de Taller (Egreso)
+  1. En el Libro de Movimientos de Caja, haz click en "+ Registrar Movimiento".
+  2. Llena:
+     - Tipo: EGRESO
+     - Rubro: INSUMOS
+     - Categoría: Insumos de Taller
+     - Concepto: Compra de 5 frascos de Alcohol Isopropílico 1L
+     - Contraparte / Proveedor: Distribuidora Química Chile
+     - Monto ($ CLP): 22500
+     - Método de Pago: TRANSFERENCIA
+  3. Click en "Guardar Movimiento".
+  >> RESULTADO ESPERADO:
+     - El egreso se añade al Libro de Caja con saldo actualizado en tiempo real.
+     - El total de gastos del mes se actualiza en el KPI superior.
+
+• TEST 5.3: Exportar Libro de Finanzas a Excel
+  1. Haz click en el botón verde: "📊 Exportar a Excel (.xlsx)".
+  >> RESULTADO ESPERADO:
+     - Se descarga inmediatamente un archivo Excel con todas las columnas ordenadas y totales calculados.
+
+================================================================================
+FASE 6: INVENTARIO, HERRAMIENTAS Y BOVEDA DE LICENCIAS DIGITALES
+================================================================================
+URL: http://localhost:5173/app/inventario
+Usuario: brilan@pcg.cl o johan@pcg.cl
+
+• TEST 6.1: Pantalla Operativa sin Pantalla en Blanco (Verificación del Bug Resuelto)
+  1. Abre http://localhost:5173/app/inventario
+  >> RESULTADO ESPERADO:
+     - Carga de inmediato sin quedarse en blanco.
+     - Se aprecian las 4 pestañas: Todo, Herramientas, Licencias de Software, Repuestos e Insumos.
+     - En la sección inferior se lista la tabla con los 8 ítems base (Pasta Arctic, SSDs, RAM, iFixit, Tester ATX, Windows 11).
+
+• TEST 6.2: Bóveda de Licencias: Copiar clave serial
+  1. En la tarjeta de "Licencia Digital Windows 11 Pro OEM", haz click en "👁️ Ver clave".
+  >> RESULTADO ESPERADO: Revela el serial oficial: VK7JG-NPHTM-C97JM-9MPGT-3V66T.
+  2. Haz click en "📋 Copiar".
+  >> RESULTADO ESPERADO: El botón cambia a "✓ Copiada" y queda en el portapapeles.
+
+• TEST 6.3: Ajuste rápido de stock en vivo (+ / -)
+  1. En el ítem "Disco SSD Kingston A400 480GB SATA", haz click en el botón "+1".
+  >> RESULTADO ESPERADO: El stock sube de 8 a 9 unidades de forma instantánea.
+
+================================================================================
+FASE 7: PLANNER DE ORDENES DE TRABAJO (KANBAN OT)
+================================================================================
+URL: http://localhost:5173/app/ot
+Usuario: brilan@pcg.cl o johan@pcg.cl
+
+• TEST 7.1: Gestión del flujo Kanban
+  1. Abre el panel de Órdenes de Trabajo.
+  2. Verás las columnas: [RECIBIDO] -> [EN REVISION] -> [EN DESARROLLO] -> [TERMINADO].
+  3. Busca una OT en estado [RECIBIDO] y arrástrala a la columna [EN DESARROLLO] (o haz click en cambiar estado).
+  >> RESULTADO ESPERADO:
+     - La tarjeta se mueve a la nueva columna y se actualiza el porcentaje de progreso.
+     - Si la OT fue creada con "Retiro a Domicilio", su tarjeta exhibe el ícono 🚗 y la dirección visible para el técnico.
+
+• TEST 7.2: Checklist de tareas dentro de la OT
+  1. Haz click sobre una OT para abrir su detalle completo.
+  2. En la sección "Checklist Técnico", marca 2 casillas (ej. "Limpieza profunda con soplador" y "Cambio de pasta térmica").
+  >> RESULTADO ESPERADO:
+     - La barra de porcentaje sube automáticamente (ej. 50% completado).
+
+• TEST 7.3: Desglose de Servicios & Reparaciones en la OT y Enviar Ganancia a Finanzas
+  1. Abre cualquier OT (por ejemplo, haz click en PCG-2026-8921 o PCG-2026-8923).
+  2. En el panel lateral (Drawer) verás la nueva pestaña: "💼 Servicios & Cobros".
+  3. Haz click en la pestaña "💼 Servicios & Cobros":
+     - En el menú desplegable "Añadir servicio del catálogo...", selecciona por ejemplo:
+       "Cambio de Pantalla Notebook / Laptop" (REP-PANT).
+     - Verás que auto-asigna la tarifa según sea Empresa o Cliente Particular ($65.000 / $85.000).
+     - Si deseas, agrega otro ítem con el botón "+ Ítem personalizado libre" (ej. "Soldadura conector de poder", $25.000).
+  4. Observa el recuadro verde inferior:
+     - Calcula el Total acumulado de la OT de forma exacta.
+  5. Haz click en el botón verde: "💰 Enviar Ganancia a Finanzas (+Total)".
+  >> RESULTADO ESPERADO:
+     - El botón cambia de inmediato a "✓ Registrado en Finanzas (Libro de Caja)".
+     - Si abres Finanzas (/app/finanzas), el ingreso aparece anotado automáticamente en el Libro de Caja como "Ingreso por Servicios OT PCG-2026-XXXX".
+
+• TEST 7.4: Reporte de Rendimiento y Ganancias por Técnico (Filtro por Fechas Desde / Hasta)
+  1. En http://localhost:5173/app/ot haz click en el botón superior:
+     "📊 Rendimiento y Ganancias por Técnico"
+  2. Se desplegará el panel interactivo de telemetría técnica:
+     - En "Técnico / Personal Autorizado" selecciona: "Johan Bugueño" (o "Brilan Bugueño").
+     - En "Desde Fecha" y "Hasta Fecha", puedes escribir fechas o usar los botones de acceso rápido: "Este Mes", "Últimos 30 días", "Año 2026" o "Todo".
+  >> RESULTADO ESPERADO:
+     1. Los 4 KPIs se actualizan en vivo:
+        - Total OTs en Rango
+        - Monto Total Realizado ($ CLP)
+        - Enviado a Finanzas ($ CLP)
+        - Promedio por OT (Ticket promedio técnico)
+     2. Muestra el bloque "🛠️ Desglose de Servicios y Reparaciones":
+        - Cuántos cambios de pantalla, teclados, formateos o mantenciones hizo ese técnico y el dinero recaudado por cada servicio.
+     3. La tabla inferior lista cada una de las OTs con su código, cliente, servicios, monto en CLP y si ya fue enviada a Finanzas. Al hacer click en una fila, abre la OT al instante.
+
+================================================================================
+FASE 8: TICKETS DE MESA DE AYUDA Y CONVERSION A OT
+================================================================================
+URL: http://localhost:5173/app/tickets
+Usuario: brilan@pcg.cl
+
+• TEST 8.1: Crear Ticket y Convertir en OT
+  1. Haz click en "+ Nuevo Ticket de Soporte".
+  2. Llena:
+     - Cliente: Pedro Muñoz (Particular)
+     - Título: Laptop no da imagen en pantalla externa HDMI
+     - Canal: WHATSAPP
+     - Prioridad: MEDIA
+     - Mensaje inicial: Conecto el cable HDMI a la tele y no detecta señal, necesito revisar puerto o drivers.
+  3. Guarda el ticket.
+  4. Abre el ticket recién creado y haz click en el botón: "⚙️ Convertir a Orden de Trabajo (OT)".
+  >> RESULTADO ESPERADO:
+     - El ticket se vincula a una nueva OT con el mismo cliente y descripción técnica sin tener que volver a escribir los datos.
+
+================================================================================
+FASE 9: COTIZACIONES FORMALES Y DESCUENTOS
+================================================================================
+URL: http://localhost:5173/app/cotizaciones
+Usuario: brilan@pcg.cl o yovylin@pcg.cl
+
+• TEST 9.1: Crear Cotización con Descuento
+  1. Haz click en "+ Nueva Cotización".
+  2. Selecciona Empresa: "Constructora Andes SpA".
+  3. Agrega 2 ítems:
+     - "Mantención Preventiva de Hardware de PC" (Cantidad: 5 equipos)
+     - "Instalación de Windows + Office + Optimización" (Cantidad: 5 equipos)
+  4. En el campo de descuento escribe: 15% (Descuento Corporativo Faena).
+  5. Haz click en "Guardar y Generar Cotización".
+  >> RESULTADO ESPERADO:
+     - Calcula el Subtotal, Descuento del 15%, IVA 19% y Total en pesos chilenos ($ CLP).
+     - Permite exportar la cotización en formato PDF formal con logo y datos de contacto de PCG SPA.
+
+================================================================================
+FASE 10: CARTERA DE CLIENTES / EMPRESAS B2B (CRM)
+================================================================================
+URL: http://localhost:5173/app/empresas
+Usuario: brilan@pcg.cl o yovylin@pcg.cl
+
+• TEST 10.1: Revisar perfil B2B de Mainsa SpA
+  1. En el buscador escribe: Mainsa
+  2. Haz click en la ficha de "Mainsa SpA - Bodega y Oficina".
+  >> RESULTADO ESPERADO:
+     - RUT: 77.412.980-5
+     - Contacto: Rodrigo Silva (contacto@mainsa.cl)
+     - Equipos asociados en el taller / bodega.
+     - Historial de proyectos web: "Bodega De Oficina - Taller Mecánico - Lavadero".
+     - Saldo de cuenta corriente y total facturado al día.
+
+================================================================================
+FASE 11: PARQUE DE EQUIPOS Y BITACORA TECNICA
+================================================================================
+URL: http://localhost:5173/app/equipos
+Usuario: johan@pcg.cl o brilan@pcg.cl
+
+• TEST 11.1: Búsqueda y Hoja de Vida de un Computador
+  1. Busca el equipo por código: PCG-EQ-001 o por serie: SN-DL7400-01.
+  2. Abre la ficha técnica.
+  >> RESULTADO ESPERADO:
+     - Marca: Dell Latitude 7400
+     - Componentes: Intel Core i7 8va Gen, 16GB RAM DDR4, SSD 512GB NVMe.
+     - Empresa asignada: Constructora Andes SpA.
+     - Pestaña "Bitácora de Intervenciones": Muestra el historial de mantenciones preventivas y cambios de componentes con fecha y técnico responsable.
+
+================================================================================
+FASE 12: MOTOR DE ALERTAS PREVENTIVAS SEMESTRALES
+================================================================================
+URL: http://localhost:5173/app/alertas
+Usuario: brilan@pcg.cl o yovylin@pcg.cl
+
+• TEST 12.1: Enviar correo de recordatorio preventivo
+  1. Entra a Alertas Preventivas.
+  2. Verás los equipos que están próximos a cumplir 6 meses desde su última mantención térmica.
+  3. Haz click en el botón: "✉️ Enviar Recordatorio al Cliente".
+  >> RESULTADO ESPERADO:
+     - El sistema notifica al cliente que su equipo requiere mantención para evitar sobrecalentamiento.
+     - El envío queda registrado en la Auditoría de Correos (/app/correos).
+
+================================================================================
+FASE 13: INFORMES TECNICOS PROFESIONALES (PDF)
+================================================================================
+URL: http://localhost:5173/app/informes
+Usuario: brilan@pcg.cl o johan@pcg.cl
+
+• TEST 13.1: Vista Imprimible / A4
+  1. Abre el informe: INF-2026-001 ("Mantención y Diagnóstico Térmico").
+  2. Haz click en "🖨️ Vista Imprimible / Guardar en PDF".
+  >> RESULTADO ESPERADO:
+     - Se abre la ventana de impresión optimizada en hoja A4 con membrete oficial de PCG SPA, datos del cliente, temperaturas antes/después (ej. 89°C -> 58°C) y firma del técnico.
+
+================================================================================
+FASE 14: PERSONAL, ROLES Y HABILITACIONES INTERNAS
+================================================================================
+URL: http://localhost:5173/app/personal
+Usuario: brilan@pcg.cl (Exclusivo CEO)
+
+• TEST 14.1: Privilegios de roles
+  1. Si intentas entrar con un usuario técnico o cliente a /app/personal, el sistema deniega el acceso por seguridad (Acceso no autorizado).
+  2. Entrando como Brilan (ADMIN), puedes:
+     - Modificar cargos y correos del personal.
+     - Habilitar o suspender cuentas de acceso.
+     - Asignar especialidades (Técnico de Taller, Finanzas o Diseñador).
+
+================================================================================
+FASE 15: AUDITORIA Y TRAZABILIDAD DE CORREOS
+================================================================================
+URL: http://localhost:5173/app/correos
+Usuario: brilan@pcg.cl o yovylin@pcg.cl
+
+• TEST 15.1: Comprobar el log de correos
+  1. Entra a /app/correos.
+  >> RESULTADO ESPERADO:
+     - Verás la lista cronológica de todos los correos generados en las pruebas anteriores:
+       * Confirmación de retiro a domicilio a matias.soto@gmail.com
+       * Alerta preventiva semestral
+       * Notificación de OT generada
+  2. Haz click en un correo para inspeccionar su cuerpo y encabezados.
+
+================================================================================
+FASE 16: NUESTRO EQUIPO PCG
+================================================================================
+URL: http://localhost:5173/app/equipo
+Visible para todos los roles logueados.
+
+• TEST 16.1: Visualización interactiva
+  1. Abre /app/equipo.
+  >> RESULTADO ESPERADO:
+     - Tarjetas con animaciones 3D presentando al equipo de PCG SPA:
+       * Brilan Bugueño (CEO / Fundador)
+       * Yovylin Vergara (Jefa de Sucursal & Finanzas)
+       * Johan Carrasco (Especialista Hardware & Taller)
+       * Francisco Valenzuela (Técnico de Soporte en Terreno)
+       * Javier Vergara (Diseñador Gráfico & Creativo Web)
+
+================================================================================
+FIN DE LA GUIA DE TESTING - PCG SPA PORTAL INTELIGENTE
+================================================================================
+Cualquier duda o ajuste adicional, el sistema cuenta con respaldo sincronizado
+en la base de datos MariaDB y en el repositorio oficial de GitHub.
+================================================================================
+

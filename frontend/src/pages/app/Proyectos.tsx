@@ -9,6 +9,7 @@ import {
 import { otTone } from '@/lib/tones'
 import type {
   EstadoCobroProyecto,
+  EstadoFactura,
   EstadoProyectoWeb,
   ModalidadEjecucion,
   PersonaExternaParticipante,
@@ -1072,6 +1073,21 @@ function ModalProyectoCompleto({
   const [tipo, setTipo] = useState<TipoProyectoWeb>(
     proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA',
   )
+  const [codigo, setCodigo] = useState(
+    proyecto?.codigo ??
+      `${(proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : (proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'}-2026-${String((db.proyectosWeb?.length ?? 0) + 1).padStart(3, '0')}`,
+  )
+
+  const handleTipoChange = (newTipo: TipoProyectoWeb) => {
+    setTipo(newTipo)
+    if (!isEdit) {
+      const prefix = newTipo === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : newTipo === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'
+      if (!codigo || /^(WEB|SOFT|INFRA)-2026-\d{3}$/.test(codigo)) {
+        setCodigo(`${prefix}-2026-${String((db.proyectosWeb?.length ?? 0) + 1).padStart(3, '0')}`)
+      }
+    }
+  }
+
   const [nombreProyecto, setNombreProyecto] = useState(
     proyecto?.nombreProyecto ?? 'Sitio Web Corporativo + Portal Comercial',
   )
@@ -1179,7 +1195,7 @@ function ModalProyectoCompleto({
     proyecto?.estado ?? 'PRODUCCION_ACTIVO',
   )
   const [notas, setNotas] = useState(proyecto?.notas ?? '')
-  const [registrarEnFinanzas, setRegistrarEnFinanzas] = useState(!isEdit)
+  const [registrarEnFinanzas, setRegistrarEnFinanzas] = useState(true)
 
   const handleToggleParticipante = (id: number) => {
     setParticipantesIds((prev) =>
@@ -1222,11 +1238,18 @@ function ModalProyectoCompleto({
           mutate((d) => {
             if (!d.proyectosWeb) d.proyectosWeb = []
             const emp = empresaId ? d.empresas.find((x) => String(x.id) === empresaId) : undefined
+            const finalCodigo = (
+              codigo.trim() ||
+              proyecto?.codigo ||
+              `${tipo === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : tipo === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'}-2026-${String(d.proyectosWeb.length + 1).padStart(3, '0')}`
+            ).toUpperCase()
+
+            const valProyNum = Number(valorProyecto) || 0
+            const montoCobradoNum = estadoCobro === 'PAGADO' ? valProyNum : (Number(montoCobrado) || 0)
+
             const payload: ProyectoWebSoftware = {
               id: proyecto?.id ?? nextId(d.proyectosWeb),
-              codigo:
-                proyecto?.codigo ??
-                `${tipo === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : tipo === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'}-2026-${String(d.proyectosWeb.length + 1).padStart(3, '0')}`,
+              codigo: finalCodigo,
               empresaId: emp?.id,
               usuarioId: emp?.contactoId,
               clienteNombre: clienteNombre.trim() || emp?.razonSocial || 'Cliente',
@@ -1236,8 +1259,8 @@ function ModalProyectoCompleto({
               urlDominio: urlDominio.trim() || undefined,
               stackTecnologico: stackTecnologico.trim() || undefined,
               hostingProveedor: hostingProveedor.trim() || undefined,
-              valorProyecto: Number(valorProyecto) || 0,
-              montoCobrado: Number(montoCobrado) || 0,
+              valorProyecto: valProyNum,
+              montoCobrado: montoCobradoNum,
               estadoCobro,
               incluyeMantencionWeb: planMantencion !== 'SIN_MENSUALIDAD' && incluyeMantencionWeb,
               planMantencion,
@@ -1279,18 +1302,106 @@ function ModalProyectoCompleto({
               if (idx >= 0) d.proyectosWeb[idx] = payload
             } else {
               d.proyectosWeb.unshift(payload)
-              if (registrarEnFinanzas && payload.montoCobrado && payload.montoCobrado > 0) {
+            }
+
+            // Sincronización automática con Finanzas (Facturación y Libro de Caja)
+            if (registrarEnFinanzas) {
+              if (!d.facturas) d.facturas = []
+              if (!d.movimientos) d.movimientos = []
+
+              const montoNeto = Math.round(valProyNum / 1.19)
+              const montoIva = valProyNum - montoNeto
+              const estadoFac: EstadoFactura =
+                estadoCobro === 'PAGADO' || montoCobradoNum >= valProyNum
+                  ? 'PAGADA'
+                  : montoCobradoNum > 0
+                    ? 'ABONADA'
+                    : 'PENDIENTE'
+
+              // 1. Sincronizar o crear Factura
+              const facIdx = d.facturas.findIndex((f) =>
+                (finalCodigo && f.concepto.includes(finalCodigo)) ||
+                (proyecto?.codigo && f.concepto.includes(proyecto.codigo)) ||
+                (proyecto?.nombreProyecto && f.concepto.toLowerCase().includes(proyecto.nombreProyecto.toLowerCase().slice(0, 20)))
+              )
+
+              let facRefId: number | undefined
+              if (facIdx >= 0) {
+                facRefId = d.facturas[facIdx].id
+                d.facturas[facIdx] = {
+                  ...d.facturas[facIdx],
+                  empresaId: payload.empresaId ?? d.facturas[facIdx].empresaId,
+                  usuarioId: payload.usuarioId ?? d.facturas[facIdx].usuarioId,
+                  contraparteNombre: payload.clienteNombre,
+                  concepto: `Proyecto ${payload.nombreProyecto} (${payload.codigo})`,
+                  montoTotal: valProyNum,
+                  montoNeto,
+                  montoIva,
+                  montoPagado: montoCobradoNum,
+                  estado: estadoFac,
+                  fechaUltimoPago: montoCobradoNum > 0 ? payload.fechaInicio : d.facturas[facIdx].fechaUltimoPago,
+                }
+              } else if (valProyNum > 0) {
+                facRefId = nextId(d.facturas)
+                d.facturas.push({
+                  id: facRefId,
+                  folio: `FAC-${1040 + d.facturas.length}`,
+                  direccion: 'POR_COBRAR',
+                  tipoDoc: 'FACTURA_AFECTA',
+                  empresaId: payload.empresaId,
+                  usuarioId: payload.usuarioId,
+                  contraparteNombre: payload.clienteNombre,
+                  contraparteRut: emp?.rut || '77.412.980-5',
+                  concepto: `Proyecto ${payload.nombreProyecto} (${payload.codigo})`,
+                  categoria: 'Desarrollo Web & Software',
+                  fechaEmision: payload.fechaInicio,
+                  fechaVencimiento: payload.fechaEntrega || addDays(payload.fechaInicio, 30),
+                  montoNeto,
+                  montoIva,
+                  montoTotal: valProyNum,
+                  montoPagado: montoCobradoNum,
+                  estado: estadoFac,
+                  metodoPago: 'TRANSFERENCIA',
+                  fechaUltimoPago: montoCobradoNum > 0 ? payload.fechaInicio : undefined,
+                  notas: `Factura vinculada a proyecto ${payload.codigo}`,
+                })
+              }
+
+              // 2. Sincronizar o crear Movimiento de Caja
+              const facTarget = facIdx >= 0 ? d.facturas[facIdx] : undefined
+              const movIdx = d.movimientos.findIndex((m) =>
+                (facRefId && m.facturaId === facRefId) ||
+                (facTarget && m.concepto.includes(facTarget.folio)) ||
+                (finalCodigo && m.concepto.includes(finalCodigo)) ||
+                (proyecto?.codigo && m.concepto.includes(proyecto.codigo)) ||
+                (proyecto?.nombreProyecto && m.concepto.toLowerCase().includes(proyecto.nombreProyecto.toLowerCase().slice(0, 20)))
+              )
+
+              if (movIdx >= 0) {
+                if (montoCobradoNum > 0) {
+                  d.movimientos[movIdx] = {
+                    ...d.movimientos[movIdx],
+                    monto: montoCobradoNum,
+                    contraparte: payload.clienteNombre,
+                    concepto: `Cobro Venta Proyecto (${payload.codigo}): ${payload.nombreProyecto} — ${payload.clienteNombre}`,
+                    fecha: payload.fechaInicio,
+                  }
+                } else {
+                  d.movimientos.splice(movIdx, 1)
+                }
+              } else if (montoCobradoNum > 0) {
                 d.movimientos.push({
                   id: nextId(d.movimientos),
-                  fecha: fechaInicio,
+                  fecha: payload.fechaInicio,
                   tipo: 'INGRESO',
                   rubro: 'INGRESO_OT',
                   categoria: 'Desarrollo Web & Proyectos',
                   concepto: `Cobro Venta Proyecto (${payload.codigo}): ${payload.nombreProyecto} — ${payload.clienteNombre}`,
                   contraparte: payload.clienteNombre,
-                  monto: payload.montoCobrado,
+                  monto: montoCobradoNum,
                   metodo: 'TRANSFERENCIA',
                   conciliadoBanco: true,
+                  facturaId: facRefId,
                 })
               }
             }
@@ -1329,12 +1440,12 @@ function ModalProyectoCompleto({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <Field label="Tipo de Proyecto">
             <select
               className={inputCls}
               value={tipo}
-              onChange={(e) => setTipo(e.target.value as TipoProyectoWeb)}
+              onChange={(e) => handleTipoChange(e.target.value as TipoProyectoWeb)}
             >
               <option value="PAGINA_WEB_CORPORATIVA">🌐 Página Web Corporativa + SEO</option>
               <option value="TIENDA_ECOMMERCE">🛒 Tienda E-Commerce / Catálogo Online</option>
@@ -1344,6 +1455,15 @@ function ModalProyectoCompleto({
               <option value="APP_MOVIL">📱 Aplicación Móvil (iOS / Android)</option>
               <option value="CONSULTORIA_SISTEMAS">📑 Consultoría y Auditoría de Sistemas</option>
             </select>
+          </Field>
+          <Field label="Código del Proyecto">
+            <input
+              className={cx(inputCls, 'font-mono font-bold uppercase')}
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+              placeholder="Ej: SOFT-2026-008"
+              required
+            />
           </Field>
           <div className="sm:col-span-2">
             <Field label="Nombre del Proyecto Vendido">
@@ -1381,7 +1501,13 @@ function ModalProyectoCompleto({
                 min={1}
                 className={cx(inputCls, 'font-bold text-slate-900')}
                 value={valorProyecto}
-                onChange={(e) => setValorProyecto(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setValorProyecto(val)
+                  if (estadoCobro === 'PAGADO') {
+                    setMontoCobrado(val)
+                  }
+                }}
                 required
               />
             </Field>
@@ -1398,7 +1524,17 @@ function ModalProyectoCompleto({
               <select
                 className={inputCls}
                 value={estadoCobro}
-                onChange={(e) => setEstadoCobro(e.target.value as EstadoCobroProyecto)}
+                onChange={(e) => {
+                  const st = e.target.value as EstadoCobroProyecto
+                  setEstadoCobro(st)
+                  if (st === 'PAGADO') {
+                    setMontoCobrado(valorProyecto)
+                  } else if (st === 'ANTICIPO_50') {
+                    setMontoCobrado(Math.round(valorProyecto * 0.5))
+                  } else if (st === 'PENDIENTE') {
+                    setMontoCobrado(0)
+                  }
+                }}
               >
                 <option value="PAGADO">✓ 100% Pagado</option>
                 <option value="ANTICIPO_50">⏳ Anticipo 50% Recibido</option>
@@ -1954,19 +2090,17 @@ function ModalProyectoCompleto({
           />
         </Field>
 
-        {!isEdit && (
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-800">
-            <input
-              type="checkbox"
-              checked={registrarEnFinanzas}
-              onChange={(e) => setRegistrarEnFinanzas(e.target.checked)}
-              className="h-4 w-4 rounded accent-emerald-600"
-            />
-            <span>
-              💰 Registrar automáticamente este cobro en Finanzas / Libro de Caja (+{fmtCLP(montoCobrado)})
-            </span>
-          </label>
-        )}
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-800">
+          <input
+            type="checkbox"
+            checked={registrarEnFinanzas}
+            onChange={(e) => setRegistrarEnFinanzas(e.target.checked)}
+            className="h-4 w-4 rounded accent-emerald-600"
+          />
+          <span>
+            💰 {isEdit ? 'Sincronizar y actualizar automáticamente este cobro en Finanzas / Libro de Caja' : 'Registrar automáticamente este cobro en Finanzas / Libro de Caja'} (+{fmtCLP(estadoCobro === 'PAGADO' ? valorProyecto : (montoCobrado || valorProyecto))})
+          </span>
+        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Btn type="button" variant="secondary" onClick={onClose}>
