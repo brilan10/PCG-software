@@ -73,31 +73,67 @@ export default function AgendarHoraModal({
   const [modelo, setModelo] = useState('Notebook Personal')
   const [serie, setSerie] = useState('')
 
-  // Selección de plan de mantención
+  // Selección de plan / tipo de mantención según Particular (B2C) vs Empresa (B2B)
+  const isEmpresaCliente = clienteForm.tipoCliente === 'EMPRESA'
+  const getPrecio = (codigo: string, defCli: number, defEmp: number) => {
+    const srv = db.servicios.find((s) => s.codigo === codigo)
+    return isEmpresaCliente ? (srv?.tarifaEmpresa ?? srv?.normal ?? defEmp) : (srv?.tarifaCliente ?? defCli)
+  }
+
   const planesMantencion = [
     {
-      id: 'mant-prev',
-      titulo: 'Mantención Preventiva Completa + Pasta Térmica Premium',
-      desc: 'Limpieza ultrasónica/aire, lubricación de coolers, cambio de pasta térmica y test de temperaturas.',
-      precio: 45000,
+      id: 'MANT-LAPTOP',
+      titulo: 'Mantención Laptop Estándar',
+      desc: 'Desarme de notebook, limpieza de disipador/cooler, cambio de pasta térmica y test térmico.',
+      precio: getPrecio('MANT-LAPTOP', 24990, 34990),
     },
     {
-      id: 'mant-soft',
-      titulo: 'Formateo Profesional + Windows + Office + Optimización',
-      desc: 'Instalación limpia, drivers oficiales, suite ofimática y optimización de arranque.',
-      precio: 50000,
+      id: 'MANT-PC',
+      titulo: 'Mantención PC Estándar',
+      desc: 'Desarme, limpieza profunda de polvo, lubricación de ventiladores, pasta térmica y pruebas.',
+      precio: getPrecio('MANT-PC', 24990, 39990),
     },
     {
-      id: 'pack-full',
-      titulo: 'Pack Full Cliente Natural (Mantención Hardware + Formateo Completo)',
-      desc: 'Mantención física integral + sistema operativo optimizado con descuento pack.',
-      precio: 80000,
+      id: 'MANT-LAP-GAMER',
+      titulo: 'Mantención Laptop Gamer',
+      desc: 'Limpieza especializada doble disipador + pasta térmica de alto rendimiento para notebooks gamer.',
+      precio: getPrecio('MANT-LAP-GAMER', 29990, 39990),
     },
     {
-      id: 'diag-rep',
-      titulo: 'Diagnóstico Técnico / Reparación de Falla o Sobrecalentamiento',
-      desc: 'Revisión electrónica, chequeo de fuente/placa/GPU y presupuesto de reparación.',
-      precio: 25000,
+      id: 'MANT-PC-GAMER',
+      titulo: 'Mantención PC Gamer (Desarme GPU y cables)',
+      desc: 'Mantención integral de torre gamer incluyendo desarme de GPU, gestión de cables y pasta térmica premium.',
+      precio: getPrecio('MANT-PC-GAMER', 34990, 44990),
+    },
+    {
+      id: 'MANT-WORKSTATION',
+      titulo: 'Mantención Laptops Alta Gama / Workstation',
+      desc: 'Servicio de alta precisión para estaciones de trabajo (Dell XPS, Alienware, ASUS ROG, etc.).',
+      precio: getPrecio('MANT-WORKSTATION', 49990, 79990),
+    },
+    {
+      id: 'MANT-APPLE',
+      titulo: 'Optimización de equipo Apple',
+      desc: 'Limpieza interna, sistema de enfriamiento y optimización para equipos MacBook / iMac.',
+      precio: getPrecio('MANT-APPLE', 24990, 24990),
+    },
+    {
+      id: 'SO-OFFICE',
+      titulo: 'Instalación de Windows + Office + Optimización',
+      desc: 'Formateo profesional con licencia digital, suite Microsoft Office y afinamiento de arranque.',
+      precio: getPrecio('SO-OFFICE', 24990, 49990),
+    },
+    {
+      id: 'CON-MANT-CONSOLA',
+      titulo: 'Mantención de Consola',
+      desc: 'Desarme completo de consola (PS4, PS5, Xbox, Switch), limpieza de turbina y cambio de pasta térmica.',
+      precio: getPrecio('CON-MANT-CONSOLA', 24990, 39990),
+    },
+    {
+      id: 'DIAG-INFORME',
+      titulo: 'Diagnóstico Técnico con Informe / Revisión',
+      desc: 'Pruebas exhaustivas de hardware/software con informe técnico formal y presupuesto de reparación.',
+      precio: getPrecio('DIAG-INFORME', 14990, 44990),
     },
   ]
   const [planSel, setPlanSel] = useState(planesMantencion[0].id)
@@ -208,10 +244,15 @@ export default function AgendarHoraModal({
 
         {/* 2. Selección del Servicio / Mantención */}
         <div>
-          <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-slate-600">
-            1. ¿Qué mantención o servicio necesitas agendar?
-          </span>
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="block text-xs font-extrabold uppercase tracking-wider text-slate-600">
+              1. ¿Qué mantención o servicio necesitas agendar?
+            </span>
+            <span className="text-[11px] font-bold text-emerald-700">
+              {isEmpresaCliente ? '🏢 Tarifas Empresa B2B (.990)' : '👤 Tarifas Particular B2C (.990)'}
+            </span>
+          </div>
+          <div className="grid max-h-56 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2">
             {planesMantencion.map((p) => {
               const active = planSel === p.id
               return (

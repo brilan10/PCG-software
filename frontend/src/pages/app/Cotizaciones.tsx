@@ -188,7 +188,18 @@ function NuevaCotModal({
 
   // Buscador rápido del catálogo de servicios
   const [busquedaServicio, setBusquedaServicio] = useState('')
-  const [categoriaServicio, setCategoriaServicio] = useState<'TODOS' | 'HARDWARE' | 'WEB_SOFT' | 'DISENO'>('TODOS')
+  const [categoriaServicio, setCategoriaServicio] = useState<
+    | 'TODOS'
+    | 'MANTENCION'
+    | 'HARDWARE'
+    | 'SOFTWARE'
+    | 'REPARACION'
+    | 'CONSOLAS'
+    | 'IMPRESORAS'
+    | 'B2B_REDES'
+    | 'DIAG_TRASLADO'
+    | 'WEB_DISENO'
+  >('TODOS')
   const [catalogoAbierto, setCatalogoAbierto] = useState(true)
 
   // Descuento a criterio (manual)
@@ -276,20 +287,53 @@ function NuevaCotModal({
   const serviciosFiltrados = useMemo(() => {
     return db.servicios.filter((s) => {
       if (s.activo === false) return false
-      if (categoriaServicio === 'WEB_SOFT') {
-        if (!s.codigo.startsWith('WEB-') && !s.codigo.startsWith('SOFT-')) return false
-      } else if (categoriaServicio === 'DISENO') {
-        if (!s.codigo.startsWith('DIS-')) return false
+      const cat = s.categoria ?? ''
+      if (categoriaServicio === 'MANTENCION') {
+        if (cat !== 'Mantenimiento y Optimización' && !s.codigo.startsWith('MANT-')) return false
       } else if (categoriaServicio === 'HARDWARE') {
-        if (s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-') || s.codigo.startsWith('DIS-')) return false
+        if (cat !== 'Armado y Hardware' && !s.codigo.startsWith('HW-')) return false
+      } else if (categoriaServicio === 'SOFTWARE') {
+        if (
+          cat !== 'Software y Sistemas' &&
+          !s.codigo.startsWith('SO-') &&
+          !s.codigo.startsWith('SW-') &&
+          !s.codigo.startsWith('AVAST-')
+        )
+          return false
+      } else if (categoriaServicio === 'REPARACION') {
+        if (cat !== 'Reparaciones Avanzadas' && !s.codigo.startsWith('REP-')) return false
+      } else if (categoriaServicio === 'CONSOLAS') {
+        if (cat !== 'Consolas y Periféricos' && !s.codigo.startsWith('CON-')) return false
+      } else if (categoriaServicio === 'IMPRESORAS') {
+        if (cat !== 'Impresoras' && !s.codigo.startsWith('IMP-')) return false
+      } else if (categoriaServicio === 'B2B_REDES') {
+        if (cat !== 'Servicios Corporativos (B2B) y Redes' && !s.codigo.startsWith('B2B-') && s.codigo !== 'DASH-INV')
+          return false
+      } else if (categoriaServicio === 'DIAG_TRASLADO') {
+        if (cat !== 'Diagnósticos y Traslados' && !s.codigo.startsWith('DIAG-') && !s.codigo.startsWith('TRAS-'))
+          return false
+      } else if (categoriaServicio === 'WEB_DISENO') {
+        if (
+          cat !== 'Diseño, Web y Software' &&
+          !s.codigo.startsWith('DIS-') &&
+          !s.codigo.startsWith('WEB-') &&
+          !s.codigo.startsWith('SOFT-')
+        )
+          return false
       }
       if (!busquedaServicio.trim()) return true
-      return matchSimilar(`${s.codigo} ${s.nombre} ${s.descripcion}`, busquedaServicio)
+      return matchSimilar(`${s.codigo} ${cat} ${s.nombre} ${s.descripcion}`, busquedaServicio)
     })
   }, [db.servicios, categoriaServicio, busquedaServicio])
 
   const agregarServicioCatalogo = (s: Servicio) => {
-    const isSingle = s.codigo.startsWith('DIS-') || s.codigo.startsWith('WEB-') || s.codigo.startsWith('SOFT-')
+    const isSingle =
+      s.codigo.startsWith('DIS-') ||
+      s.codigo.startsWith('WEB-') ||
+      s.codigo.startsWith('SOFT-') ||
+      s.codigo === 'B2B-CONTRATO' ||
+      s.codigo === 'TRAS-URBANO' ||
+      s.codigo === 'TRAS-FUERA'
     const isPersona = clienteForm.tipoCliente === 'PERSONA'
     const baseNormal = isPersona ? (s.tarifaCliente ?? s.normal) : (s.tarifaEmpresa ?? s.normal)
     setItems((prev) => [
@@ -518,8 +562,8 @@ function NuevaCotModal({
                     {
                       descripcion: 'Repuesto o Servicio personalizado adicional',
                       cantidad: 1,
-                      normal: isPersona ? 35000 : 45000,
-                      convenio: 35000,
+                      normal: isPersona ? 24990 : 39990,
+                      convenio: 24990,
                     },
                   ])
                 }}
@@ -537,9 +581,15 @@ function NuevaCotModal({
                 {(
                   [
                     ['TODOS', 'Todos'],
-                    ['HARDWARE', '🛠️ Soporte / HW'],
-                    ['WEB_SOFT', '🌐 Web / Software'],
-                    ['DISENO', '🎨 Diseño'],
+                    ['MANTENCION', '🛠️ Mantenciones'],
+                    ['HARDWARE', '🖥️ Armado y HW'],
+                    ['SOFTWARE', '💿 Software y SO'],
+                    ['REPARACION', '🔬 Reparaciones'],
+                    ['CONSOLAS', '🎮 Consolas / Perif.'],
+                    ['IMPRESORAS', '🖨️ Impresoras'],
+                    ['B2B_REDES', '🏢 B2B y Redes'],
+                    ['DIAG_TRASLADO', '🩺 Diagnóstico / Traslado'],
+                    ['WEB_DISENO', '🌐 Web / Diseño'],
                   ] as const
                 ).map(([id, label]) => (
                   <button

@@ -239,6 +239,7 @@ CREATE TABLE ot_comentarios (
 CREATE TABLE catalogo_servicios (
     id_servicio    INT PRIMARY KEY AUTO_INCREMENT,
     codigo         VARCHAR(30) UNIQUE NOT NULL,
+    categoria      VARCHAR(100) NULL,
     nombre         VARCHAR(150) NOT NULL,
     descripcion    TEXT,                              -- texto tecnico que aparece en la cotizacion
     precio_normal  BIGINT NOT NULL,                   -- CLP, tarifa lista

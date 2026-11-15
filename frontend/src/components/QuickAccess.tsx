@@ -34,7 +34,7 @@ export default function QuickAccess() {
   const ciudad = 'Santiago'
 
   // Datos de la mantención / equipo
-  const [planSel, setPlanSel] = useState('mant-prev')
+  const [planSel, setPlanSel] = useState('MANT-LAPTOP')
   const [fechaCita, setFechaCita] = useState(addDays(today(), 1))
   const [horaCita, setHoraCita] = useState('10:30')
   const [modalidad, setModalidad] = useState<'LABORATORIO' | 'DOMICILIO'>('LABORATORIO')
@@ -59,11 +59,22 @@ export default function QuickAccess() {
     )
   }, [db.usuarios, cleanEmail, cleanRut])
 
+  const isEmpresaCliente = tipoCliente === 'EMPRESA'
+  const getPrecio = (codigo: string, defCli: number, defEmp: number) => {
+    const srv = db.servicios.find((s) => s.codigo === codigo)
+    return isEmpresaCliente ? (srv?.tarifaEmpresa ?? srv?.normal ?? defEmp) : (srv?.tarifaCliente ?? defCli)
+  }
+
   const planes = [
-    { id: 'mant-prev', titulo: 'Mantención Preventiva Completa + Pasta Térmica', precio: 45000 },
-    { id: 'mant-soft', titulo: 'Formateo + Windows + Office + Optimización', precio: 50000 },
-    { id: 'pack-full', titulo: 'Pack Full Persona Natural (Mantención + Formateo)', precio: 80000 },
-    { id: 'diag-rep', titulo: 'Diagnóstico Técnico / Reparación de Falla', precio: 25000 },
+    { id: 'MANT-LAPTOP', titulo: 'Mantención Laptop Estándar', precio: getPrecio('MANT-LAPTOP', 24990, 34990) },
+    { id: 'MANT-PC', titulo: 'Mantención PC Estándar', precio: getPrecio('MANT-PC', 24990, 39990) },
+    { id: 'MANT-LAP-GAMER', titulo: 'Mantención Laptop Gamer', precio: getPrecio('MANT-LAP-GAMER', 29990, 39990) },
+    { id: 'MANT-PC-GAMER', titulo: 'Mantención PC Gamer (Desarme GPU y cables)', precio: getPrecio('MANT-PC-GAMER', 34990, 44990) },
+    { id: 'MANT-WORKSTATION', titulo: 'Mantención Laptops Alta Gama / Workstation', precio: getPrecio('MANT-WORKSTATION', 49990, 79990) },
+    { id: 'MANT-APPLE', titulo: 'Optimización de equipo Apple', precio: getPrecio('MANT-APPLE', 24990, 24990) },
+    { id: 'SO-OFFICE', titulo: 'Instalación de Windows + Office + Optimización', precio: getPrecio('SO-OFFICE', 24990, 49990) },
+    { id: 'CON-MANT-CONSOLA', titulo: 'Mantención de Consola', precio: getPrecio('CON-MANT-CONSOLA', 24990, 39990) },
+    { id: 'DIAG-INFORME', titulo: 'Diagnóstico Técnico con Informe / Revisión', precio: getPrecio('DIAG-INFORME', 14990, 44990) },
   ]
   const planActual = planes.find((p) => p.id === planSel) ?? planes[0]
   const proximosDias = Array.from({ length: 7 }, (_, i) => addDays(today(), i + 1))
@@ -685,10 +696,13 @@ export default function QuickAccess() {
 
               {/* Selección de servicio */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-emerald-400">
-                  Servicio requerido
-                </label>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    Servicio requerido ({isEmpresaCliente ? '🏢 Empresa B2B' : '👤 Particular B2C'})
+                  </label>
+                  <span className="text-[11px] font-semibold text-slate-400">Precios con terminación .990</span>
+                </div>
+                <div className="grid max-h-48 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                   {planes.map((p) => (
                     <button
                       key={p.id}

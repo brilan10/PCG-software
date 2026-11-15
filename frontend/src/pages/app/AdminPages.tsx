@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '@/lib/store'
@@ -1389,25 +1389,60 @@ export function PersonalPage() {
 }
 
 // ---------- 3. Catálogo, descuentos y condiciones ----------
+const CATEGORIAS_CATALOGO = [
+  'Todos',
+  'Mantenimiento y Optimización',
+  'Armado y Hardware',
+  'Software y Sistemas',
+  'Reparaciones Avanzadas',
+  'Consolas y Periféricos',
+  'Impresoras',
+  'Servicios Corporativos (B2B) y Redes',
+  'Diagnósticos y Traslados',
+  'Diseño, Web y Software',
+] as const
+
 export function CatalogoPage() {
   const { db, user, mutate } = useStore()
   const isAdmin = user!.rol === 'ADMIN'
+  const [busqueda, setBusqueda] = useState('')
+  const [catFiltro, setCatFiltro] = useState<string>('Todos')
+
+  const serviciosFiltrados = useMemo(() => {
+    const tokens = busqueda
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+
+    return db.servicios.filter((s) => {
+      if (catFiltro !== 'Todos' && (s.categoria ?? '') !== catFiltro) return false
+      if (tokens.length === 0) return true
+      const hay = `${s.codigo} ${s.categoria ?? ''} ${s.nombre} ${s.descripcion}`
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+      return tokens.every((t) => hay.includes(t))
+    })
+  }, [db.servicios, busqueda, catFiltro])
 
   return (
     <>
       <PageHeader
         title="Catálogo de servicios y motor de descuentos"
-        subtitle="Precios base para las plantillas de cotización Excel y reglas automáticas por volumen"
+        subtitle="Precios oficiales .990 para Clientes Particulares (B2C) y Empresas (B2B), convenios y reglas automáticas por volumen"
       />
 
-      <Card title="Catálogo de servicios (alimenta las cotizaciones)">
-        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600 space-y-1">
+      <Card title={`Catálogo de servicios PCG (${serviciosFiltrados.length} de ${db.servicios.length} servicios)`}>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600 space-y-2">
           <div className="flex items-center gap-2 font-bold text-slate-800">
             <span>🏷️</span>
             <span>Tarifas Diferenciadas por Segmento</span>
           </div>
           <p>
-            • <b className="text-emerald-700">Tarifa Clientes (Particular):</b> Precio para personas naturales y particulares.
+            • <b className="text-emerald-700">Tarifa Clientes (Particular):</b> Precio final B2C para personas naturales.
             <br />
             • <b className="text-indigo-700">Tarifa Empresas (B2B / Nominal):</b> Tarifa corporativa estándar aplicada a empresas e instituciones.
             <br />
@@ -1415,9 +1450,57 @@ export function CatalogoPage() {
           </p>
         </div>
 
+        {/* Buscador rápido y píldoras de categoría */}
+        <div className="mb-4 space-y-2.5">
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-slate-400">🔎</span>
+            <input
+              type="text"
+              className={`${inputCls} !pl-8 !pr-20 text-xs`}
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar servicio por nombre, código o palabra clave (ej: gamer, laptop, windows, impresora, traslado)..."
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda('')}
+                className="absolute inset-y-1.5 right-2 rounded-lg bg-slate-100 px-2.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                ✕ Limpiar
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIAS_CATALOGO.map((cat) => {
+              const count =
+                cat === 'Todos'
+                  ? db.servicios.length
+                  : db.servicios.filter((s) => (s.categoria ?? '') === cat).length
+              const active = catFiltro === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCatFiltro(cat)}
+                  className={cx(
+                    'rounded-xl px-2.5 py-1 text-[11px] font-bold transition',
+                    active
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100',
+                  )}
+                >
+                  {cat} ({count})
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <Table
           head={[
-            'Código',
+            'Código / Categoría',
             'Servicio',
             'Tarifa Clientes (Particular)',
             'Tarifa Empresas (B2B / Nominal)',
@@ -1425,9 +1508,16 @@ export function CatalogoPage() {
             ...(isAdmin ? ['Costo Interno (solo CEO)'] : []),
           ]}
         >
-          {db.servicios.map((s) => (
+          {serviciosFiltrados.map((s) => (
             <tr key={s.id} className="hover:bg-slate-50/60 transition">
-              <td className={`${td} font-mono text-xs font-bold text-slate-700`}>{s.codigo}</td>
+              <td className={td}>
+                <div className="font-mono text-xs font-bold text-slate-800">{s.codigo}</div>
+                {s.categoria && (
+                  <span className="mt-1 inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                    {s.categoria}
+                  </span>
+                )}
+              </td>
               <td className={td}>
                 <div className="font-semibold text-slate-900">{s.nombre}</div>
                 <div className="text-xs text-slate-500 line-clamp-2">{s.descripcion}</div>
@@ -1440,7 +1530,7 @@ export function CatalogoPage() {
                   <input
                     type="number"
                     min={0}
-                    step={1000}
+                    step={10}
                     className={`${inputCls} !w-32 border-emerald-300 bg-emerald-50/40 font-bold text-emerald-900 focus:border-emerald-500`}
                     value={s.tarifaCliente ?? s.normal}
                     onChange={(e) =>
@@ -1464,7 +1554,7 @@ export function CatalogoPage() {
                   <input
                     type="number"
                     min={0}
-                    step={1000}
+                    step={10}
                     className={`${inputCls} !w-32 border-indigo-300 bg-indigo-50/40 font-bold text-indigo-900 focus:border-indigo-500`}
                     value={s.tarifaEmpresa ?? s.normal}
                     onChange={(e) =>
@@ -1489,7 +1579,7 @@ export function CatalogoPage() {
                   <input
                     type="number"
                     min={0}
-                    step={1000}
+                    step={10}
                     className={`${inputCls} !w-28 border-amber-300 bg-amber-50/30 font-semibold text-amber-900 focus:border-amber-500`}
                     value={s.convenio}
                     onChange={(e) =>
@@ -1511,7 +1601,7 @@ export function CatalogoPage() {
                     <input
                       type="number"
                       min={0}
-                      step={1000}
+                      step={10}
                       className={`${inputCls} !w-28 font-medium text-slate-700`}
                       value={s.costo ?? 0}
                       onChange={(e) =>

@@ -1243,7 +1243,7 @@ function ModalProyectoCompleto({
   )
   const [codigo, setCodigo] = useState(
     proyecto?.codigo ??
-      `${(proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : (proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'}-2026-${String((db.proyectosWeb?.length ?? 0) + 1).padStart(3, '0')}`,
+    `${(proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'SOFTWARE_A_MEDIDA' ? 'SOFT' : (proyecto?.tipo ?? 'PAGINA_WEB_CORPORATIVA') === 'INFRAESTRUCTURA_REDES' ? 'INFRA' : 'WEB'}-2026-${String((db.proyectosWeb?.length ?? 0) + 1).padStart(3, '0')}`,
   )
 
   const handleTipoChange = (newTipo: TipoProyectoWeb) => {
@@ -1453,14 +1453,14 @@ function ModalProyectoCompleto({
               empresaExterna:
                 modalidadEjecucion !== 'SOLO_PCG' && externaNombre.trim()
                   ? {
-                      nombre: externaNombre.trim(),
-                      rut: externaRut.trim() || undefined,
-                      rolOParte: externaRol.trim() || 'Servicios externos especializados',
-                      costoPagado: Number(externaCosto) || 0,
-                      personasParticipantes: personasExternas.filter((pe) => pe.nombre.trim()).length > 0
-                        ? personasExternas.filter((pe) => pe.nombre.trim())
-                        : undefined,
-                    }
+                    nombre: externaNombre.trim(),
+                    rut: externaRut.trim() || undefined,
+                    rolOParte: externaRol.trim() || 'Servicios externos especializados',
+                    costoPagado: Number(externaCosto) || 0,
+                    personasParticipantes: personasExternas.filter((pe) => pe.nombre.trim()).length > 0
+                      ? personasExternas.filter((pe) => pe.nombre.trim())
+                      : undefined,
+                  }
                   : undefined,
               notas: notas.trim() || undefined,
             }

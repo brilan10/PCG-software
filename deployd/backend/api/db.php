@@ -12,6 +12,16 @@ require_once __DIR__ . '/../config/db.php';
 try {
     $pdo = DB::connect();
 
+    // Asegurar columna categoria en servicios si es BD previa
+    try {
+        $colCat = $pdo->query("SHOW COLUMNS FROM servicios LIKE 'categoria'")->fetch();
+        if (!$colCat) {
+            $pdo->exec("ALTER TABLE servicios ADD COLUMN categoria VARCHAR(100) NULL AFTER codigo");
+        }
+    } catch (\Throwable $e) {
+        // Ignorar si ya existe o no aplica
+    }
+
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'GET') {
@@ -135,6 +145,7 @@ try {
             return [
                 'id' => (int)$r['id'],
                 'codigo' => $r['codigo'],
+                'categoria' => $r['categoria'] ?? null,
                 'nombre' => $r['nombre'],
                 'descripcion' => $r['descripcion'] ?? '',
                 'tarifaCliente' => $tarifaCliente,
@@ -648,13 +659,14 @@ try {
         // 6. Servicios
         if (isset($data['servicios']) && is_array($data['servicios'])) {
             $pdo->exec("DELETE FROM servicios WHERE 1=1");
-            $st = $pdo->prepare("INSERT INTO servicios (id, codigo, nombre, descripcion, tarifa_cliente, tarifa_empresa, normal, convenio, costo, activo) VALUES (:id, :codigo, :nombre, :descripcion, :tarifa_cliente, :tarifa_empresa, :normal, :convenio, :costo, :activo)");
+            $st = $pdo->prepare("INSERT INTO servicios (id, codigo, categoria, nombre, descripcion, tarifa_cliente, tarifa_empresa, normal, convenio, costo, activo) VALUES (:id, :codigo, :categoria, :nombre, :descripcion, :tarifa_cliente, :tarifa_empresa, :normal, :convenio, :costo, :activo)");
             foreach ($data['servicios'] as $s) {
                 $nom = $s['tarifaEmpresa'] ?? $s['normal'] ?? 0;
                 $cli = $s['tarifaCliente'] ?? $nom;
                 $st->execute([
                     ':id' => $s['id'],
                     ':codigo' => $s['codigo'],
+                    ':categoria' => $s['categoria'] ?? null,
                     ':nombre' => $s['nombre'],
                     ':descripcion' => $s['descripcion'] ?? null,
                     ':tarifa_cliente' => $cli,

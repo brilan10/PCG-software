@@ -124,6 +124,7 @@ DROP TABLE IF EXISTS servicios;
 CREATE TABLE servicios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     codigo VARCHAR(50) UNIQUE NOT NULL,
+    categoria VARCHAR(100) NULL,
     nombre VARCHAR(200) NOT NULL,
     descripcion TEXT NULL,
     tarifa_cliente BIGINT DEFAULT 0,

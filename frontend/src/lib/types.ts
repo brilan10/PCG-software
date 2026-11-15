@@ -207,6 +207,7 @@ export interface Ticket {
 export interface Servicio {
   id: number
   codigo: string
+  categoria?: string
   nombre: string
   descripcion: string
   tarifaCliente?: number

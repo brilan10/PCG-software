@@ -184,16 +184,21 @@ try {
 
     // 6. Servicios
     $stmtSrv = $pdo->prepare("
-        INSERT INTO servicios (id, codigo, nombre, descripcion, normal, convenio, costo, activo)
-        VALUES (:id, :codigo, :nombre, :descripcion, :normal, :convenio, :costo, :activo)
+        INSERT INTO servicios (id, codigo, categoria, nombre, descripcion, tarifa_cliente, tarifa_empresa, normal, convenio, costo, activo)
+        VALUES (:id, :codigo, :categoria, :nombre, :descripcion, :tarifa_cliente, :tarifa_empresa, :normal, :convenio, :costo, :activo)
     ");
     foreach ($seed['servicios'] ?? [] as $s) {
+        $nom = $s['tarifaEmpresa'] ?? $s['normal'] ?? 0;
+        $cli = $s['tarifaCliente'] ?? $nom;
         $stmtSrv->execute([
             ':id' => $s['id'],
             ':codigo' => $s['codigo'],
+            ':categoria' => $s['categoria'] ?? null,
             ':nombre' => $s['nombre'],
             ':descripcion' => $s['descripcion'] ?? null,
-            ':normal' => $s['normal'] ?? 0,
+            ':tarifa_cliente' => $cli,
+            ':tarifa_empresa' => $nom,
+            ':normal' => $nom,
             ':convenio' => $s['convenio'] ?? 0,
             ':costo' => $s['costo'] ?? 0,
             ':activo' => ($s['activo'] ?? true) ? 1 : 0,
