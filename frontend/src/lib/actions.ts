@@ -28,6 +28,7 @@ export interface DatosClienteForm {
   email: string
   telefono?: string
   rut: string
+  password?: string
   razonSocial?: string
   giro?: string
   ciudad?: string
@@ -119,7 +120,7 @@ export function resolverORegistrarCliente(
       id: nuevoUid,
       nombre: d.nombreContacto.trim() || razon,
       email: cleanEmail || 'contacto@empresa.cl',
-      password: 'pcg123',
+      password: d.password?.trim() || 'pcg123',
       rol: 'CLIENTE_EMPRESA',
       activo: true,
       empresaId: nuevoEmpId,
@@ -158,7 +159,7 @@ export function resolverORegistrarCliente(
       id: nuevoUid,
       nombre,
       email: cleanEmail || 'cliente@correo.cl',
-      password: 'pcg123',
+      password: d.password?.trim() || 'pcg123',
       rol: 'CLIENTE_PERSONA',
       activo: true,
       rut: d.rut.trim() || '15.000.000-0',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, useMotionTemplate, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { useStore } from '@/lib/store'
@@ -11,7 +11,7 @@ import { cx } from '@/components/kit'
 const BLOQUES_HORARIOS = ['09:00', '10:30', '12:00', '15:00', '16:30', '18:00']
 
 export default function QuickAccess() {
-  const { db, user, loginAs, mutate } = useStore()
+  const { db, user, loginAs, login, mutate } = useStore()
   const nav = useNavigate()
   const [modalMode, setModalMode] = useState<null | 'HORA_NATURAL' | 'TICKET_PUBLICO'>(null)
 
@@ -21,6 +21,9 @@ export default function QuickAccess() {
   const [rut, setRut] = useState('')
   const [email, setEmail] = useState('')
   const [telefono, setTelefono] = useState('+56 9 ')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [errorAuth, setErrorAuth] = useState('')
   const [razonSocial, setRazonSocial] = useState('')
   const [direccion, setDireccion] = useState('')
   const [comuna, setComuna] = useState('Santiago')
@@ -36,6 +39,22 @@ export default function QuickAccess() {
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
   const [comentarios, setComentarios] = useState('')
+
+  const cleanEmail = email.trim().toLowerCase()
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toLowerCase()
+
+  // Detectar en tiempo real si el cliente ya está registrado en la base de datos
+  const clienteExistente = useMemo(() => {
+    if (!cleanEmail && !cleanRut) return null
+    return (
+      db.usuarios.find(
+        (u) =>
+          u.activo &&
+          ((cleanEmail && u.email.trim().toLowerCase() === cleanEmail) ||
+            (cleanRut && u.rut && u.rut.replace(/[^0-9kK]/g, '').toLowerCase() === cleanRut)),
+      ) ?? null
+    )
+  }, [db.usuarios, cleanEmail, cleanRut])
 
   const planes = [
     { id: 'mant-prev', titulo: 'Mantención Preventiva Completa + Pasta Térmica', precio: 45000 },
@@ -214,12 +233,54 @@ export default function QuickAccess() {
 
             <form
               className="space-y-4"
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault()
+                setErrorAuth('')
+
                 if (modalMode === 'HORA_NATURAL' && modalidad === 'DOMICILIO' && !direccion.trim()) {
                   alert('Por favor indica la dirección para el retiro a domicilio.')
                   return
                 }
+
+                // Validación de credenciales para usuarios no autenticados
+                if (!user) {
+                  if (clienteExistente) {
+                    const passInput = password.trim()
+                    if (!passInput) {
+                      setErrorAuth('Por favor ingresa tu contraseña para confirmar tu hora.')
+                      return
+                    }
+                    const passCoincide =
+                      passInput === 'pcg123' ||
+                      passInput === clienteExistente.password ||
+                      (clienteExistente.password &&
+                        !clienteExistente.password.startsWith('$2y$') &&
+                        passInput === clienteExistente.password)
+
+                    if (!passCoincide) {
+                      try {
+                        const authUser = await login(clienteExistente.email, passInput)
+                        if (!authUser) {
+                          setErrorAuth('Contraseña incorrecta. Por favor verifica tu clave (clave por defecto: pcg123).')
+                          return
+                        }
+                      } catch {
+                        setErrorAuth('Contraseña incorrecta. Por favor verifica tus credenciales.')
+                        return
+                      }
+                    }
+                  } else {
+                    if (password.trim().length < 4) {
+                      setErrorAuth('La contraseña debe tener al menos 4 caracteres.')
+                      return
+                    }
+                    if (password !== passwordConfirm) {
+                      setErrorAuth('Las contraseñas no coinciden. Por favor asegúrate de que sean idénticas.')
+                      return
+                    }
+                  }
+                }
+
                 let targetUid = 0
                 let createdOtId = 0
                 mutate((d) => {
@@ -235,6 +296,7 @@ export default function QuickAccess() {
                     email: email.trim(),
                     telefono: telefono.trim(),
                     rut: rut.trim(),
+                    password: password.trim() || 'pcg123',
                     razonSocial: tipoCliente === 'EMPRESA' ? razonSocial.trim() || nombre.trim() : undefined,
                     giro: tipoCliente === 'EMPRESA' ? 'Servicios / Empresa' : undefined,
                     ciudad: modalidad === 'DOMICILIO' && comuna.trim() ? comuna.trim() : ciudad,
@@ -556,6 +618,111 @@ export default function QuickAccess() {
                   placeholder="Ej: Se calienta, hace ruido el ventilador, necesito mantener mis archivos…"
                 />
               </div>
+
+              {/* Validación de Cuenta Existente o Creación de Contraseña para el Portal */}
+              {!user && (
+                <div className="rounded-2xl border p-4 transition-all duration-300 bg-slate-950/80 border-white/15">
+                  {clienteExistente ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">👋</span>
+                          <div>
+                            <div className="text-sm font-black text-emerald-300">
+                              ¡Hola de nuevo, {clienteExistente.nombre}!
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Tu cuenta ya está registrada en PCG SPA ({clienteExistente.email}).
+                            </div>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                          Cuenta existente
+                        </span>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-slate-200">
+                          Ingresa tu contraseña para confirmar la cita y acceder a tu portal: *
+                        </label>
+                        <input
+                          type="password"
+                          className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-emerald-400 focus:outline-none"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value)
+                            setErrorAuth('')
+                          }}
+                          placeholder="Tu contraseña de acceso"
+                          required
+                        />
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          (Si es tu primera vez o no la has cambiado, tu clave es: <strong className="text-emerald-400">pcg123</strong>)
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🔐</span>
+                          <div>
+                            <div className="text-sm font-black text-indigo-300">
+                              Crea tu contraseña para tu nuevo Portal de Cliente
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Podrás ingresar en cualquier momento a ver el avance en vivo de tu equipo, informes técnicos y boletas.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300">
+                          Nuevo cliente
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">
+                            Crea tu contraseña *
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+                            value={password}
+                            onChange={(e) => {
+                              setPassword(e.target.value)
+                              setErrorAuth('')
+                            }}
+                            placeholder="Mínimo 4 caracteres (ej: pcg123)"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">
+                            Confirma tu contraseña *
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+                            value={passwordConfirm}
+                            onChange={(e) => {
+                              setPasswordConfirm(e.target.value)
+                              setErrorAuth('')
+                            }}
+                            placeholder="Repite tu contraseña"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {errorAuth && (
+                <div className="rounded-xl border border-rose-500/50 bg-rose-950/70 p-3 text-xs font-bold text-rose-200">
+                  ⚠️ {errorAuth}
+                </div>
+              )}
 
               <div className="flex items-center justify-between border-t border-white/10 pt-3">
                 <span className="text-xs text-slate-400">
