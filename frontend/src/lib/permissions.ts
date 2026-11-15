@@ -47,8 +47,8 @@ export const MODULOS_CONFIG: Record<ModuloKey, ModuloInfo> = {
     key: 'FINANZAS',
     label: 'Finanzas, Facturación y Flujo de Caja',
     icon: '◈',
-    rolesPermitidos: ['ADMIN', 'DOC_PROCESS'],
-    motivoBloqueo: 'Acceso estrictamente restringido a Dirección General y Jefatura de Finanzas. Los colaboradores y personal operativo no tienen acceso a información bancaria ni facturación de la empresa.',
+    rolesPermitidos: ['ADMIN', 'DOC_PROCESS', 'CLIENTE_EMPRESA', 'CLIENTE_PERSONA'],
+    motivoBloqueo: 'Acceso estrictamente restringido a Dirección General, Jefatura de Finanzas y Clientes para consultar sus facturas emitidas.',
   },
   INVENTARIO: {
     key: 'INVENTARIO',

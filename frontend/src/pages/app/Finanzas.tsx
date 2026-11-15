@@ -436,6 +436,14 @@ export default function FinanzasPage() {
           badge="Portal Financiero Clientes · PCG SPA"
           title="Mis Facturas y Estado de Cuenta"
           subtitle="Revisa tus facturas emitidas por PCG SPA, abonos realizados y saldos pendientes por pagar."
+          actions={
+            <Link
+              to="/app/tickets?nuevo=1&asunto=Consulta%20sobre%20Facturación%20o%20Pagos"
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white shadow-2xs backdrop-blur-md transition hover:bg-white/20"
+            >
+              ✉ Consultar o Informar Transferencia
+            </Link>
+          }
         />
       )}
 
@@ -934,11 +942,11 @@ export default function FinanzasPage() {
             <Table
               head={[
                 'Folio / Tipo',
-                tab === 'COBRAR' ? 'Cliente (Quién nos debe)' : 'Proveedor (A quién debemos)',
+                isClient ? 'Receptor / Empresa' : (tab === 'COBRAR' ? 'Cliente (Quién nos debe)' : 'Proveedor (A quién debemos)'),
                 'Concepto / OT',
                 'Emisión y Vencimiento',
                 'Total Factura',
-                tab === 'COBRAR' ? 'Cobrado / Me deben' : 'Pagado / Debo pagar',
+                isClient ? 'Monto Pagado / Saldo' : (tab === 'COBRAR' ? 'Cobrado / Me deben' : 'Pagado / Debo pagar'),
                 'Estado',
                 '',
               ]}
@@ -1017,10 +1025,18 @@ export default function FinanzasPage() {
                         {saldo > 0 ? (
                           <div
                             className={`text-xs font-extrabold ${
-                              tab === 'COBRAR' ? 'text-emerald-700' : 'text-rose-600'
+                              isClient
+                                ? 'text-amber-700'
+                                : tab === 'COBRAR'
+                                  ? 'text-emerald-700'
+                                  : 'text-rose-600'
                             }`}
                           >
-                            {tab === 'COBRAR' ? `Me deben: ${fmtCLP(saldo)}` : `Debo pagar: ${fmtCLP(saldo)}`}
+                            {isClient
+                              ? `Saldo pendiente: ${fmtCLP(saldo)}`
+                              : tab === 'COBRAR'
+                                ? `Me deben: ${fmtCLP(saldo)}`
+                                : `Debo pagar: ${fmtCLP(saldo)}`}
                           </div>
                         ) : (
                           <div className="text-xs font-bold text-emerald-600">
@@ -1053,6 +1069,19 @@ export default function FinanzasPage() {
                         >
                           {tab === 'COBRAR' ? '💵 Registrar cobro' : '💸 Pagar factura'}
                         </Btn>
+                      )}
+                      {isClient && saldo > 0 && (
+                        <Link
+                          to={`/app/tickets?nuevo=1&asunto=${encodeURIComponent(`Comprobante de Pago Factura ${f.folio}`)}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-indigo-700 transition"
+                        >
+                          ✉ Informar Pago
+                        </Link>
+                      )}
+                      {isClient && saldo === 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                          ✓ Al día
+                        </span>
                       )}
                     </td>
                   </tr>
