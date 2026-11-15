@@ -97,9 +97,15 @@ export function resolverORegistrarCliente(
         (cleanRut && u.rut && normRut(u.rut) === cleanRut)),
   )
   if (usuExistente) {
+    if (d.email?.trim()) usuExistente.email = d.email.trim()
+    if (d.nombreContacto?.trim()) usuExistente.nombre = d.nombreContacto.trim()
     if (d.telefono?.trim()) usuExistente.telefono = d.telefono.trim()
     if (d.direccion?.trim()) usuExistente.direccion = d.direccion.trim()
     if (d.ciudad?.trim()) usuExistente.ciudad = d.ciudad.trim()
+    if (d.password?.trim()) {
+      usuExistente.password = d.password.trim()
+      usuExistente.esClavePorDefecto = (d.password.trim() === 'pcg123')
+    }
     const emp = db.empresas.find((e) => e.id === usuExistente.empresaId)
     if (emp && d.direccion?.trim()) emp.direccion = d.direccion.trim()
     return {
