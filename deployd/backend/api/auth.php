@@ -27,25 +27,28 @@ try {
 
     $cleanRut = str_replace(['.', '-', ' '], '', strtolower($input));
 
-    // Búsqueda inteligente por Correo (Gmail o cualquier dominio), RUT con formato o RUT numérico limpio
+    // Búsqueda flexible por Correo, RUT de usuario (con puntos y guión, o números y guión) o RUT de empresa
     $stmt = $pdo->prepare("
-        SELECT * FROM usuarios 
-        WHERE activo = 1 
+        SELECT u.* FROM usuarios u
+        LEFT JOIN empresas e ON e.id = u.empresa_id
+        WHERE u.activo = 1 
           AND (
-            LOWER(TRIM(email)) = LOWER(:in1)
-            OR (LOWER(:in2) = 'brilanbugueno@gmail.com' AND LOWER(TRIM(email)) = 'matias.soto@gmail.com')
-            OR (LOWER(:in3) = 'matias.soto@gmail.com' AND LOWER(TRIM(email)) = 'brilanbugueno@gmail.com')
-            OR LOWER(TRIM(rut)) = LOWER(:in4)
-            OR REPLACE(REPLACE(REPLACE(LOWER(rut), '.', ''), '-', ''), ' ', '') = :cleanRut
+            LOWER(TRIM(u.email)) = LOWER(:in1)
+            OR (LOWER(:in2) = 'brilanbugueno@gmail.com' AND LOWER(TRIM(u.email)) = 'matias.soto@gmail.com')
+            OR (LOWER(:in3) = 'matias.soto@gmail.com' AND LOWER(TRIM(u.email)) = 'brilanbugueno@gmail.com')
+            OR LOWER(TRIM(u.rut)) = LOWER(:in4)
+            OR REPLACE(REPLACE(REPLACE(LOWER(u.rut), '.', ''), '-', ''), ' ', '') = :cleanRut1
+            OR (e.id IS NOT NULL AND REPLACE(REPLACE(REPLACE(LOWER(e.rut), '.', ''), '-', ''), ' ', '') = :cleanRut2)
           ) 
-        ORDER BY id ASC LIMIT 1
+        ORDER BY u.id ASC LIMIT 1
     ");
     $stmt->execute([
         ':in1' => $input,
         ':in2' => $input,
         ':in3' => $input,
         ':in4' => $input,
-        ':cleanRut' => $cleanRut,
+        ':cleanRut1' => $cleanRut,
+        ':cleanRut2' => $cleanRut,
     ]);
     $u = $stmt->fetch();
 

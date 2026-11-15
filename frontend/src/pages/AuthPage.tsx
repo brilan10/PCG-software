@@ -140,7 +140,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'registro' }) {
             <input
               className={field}
               type="text"
-              placeholder="brilan@pcg.cl o RUT"
+              placeholder="Correo (ej: brilan@pcg.cl) o RUT (19.442.810-3 o 19442810-3)"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

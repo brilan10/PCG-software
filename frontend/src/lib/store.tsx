@@ -214,15 +214,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 2. Fallback local si backend no responde
       const cleanInput = email.trim().toLowerCase()
       const cleanRut = cleanInput.replace(/[\.\-\s]/g, '')
-      const u = db.usuarios.find(
-        (x) =>
-          (x.email.toLowerCase() === cleanInput ||
-            (cleanInput === 'matias.soto@gmail.com' && x.email.toLowerCase() === 'brilanbugueno@gmail.com') ||
-            (cleanInput === 'brilanbugueno@gmail.com' && x.email.toLowerCase() === 'matias.soto@gmail.com') ||
-            (x.rut && x.rut.toLowerCase().replace(/[\.\-\s]/g, '') === cleanRut)) &&
-          (x.password === password || password === 'pcg123' || (x.password && x.password.startsWith('$2y$') && password === 'pcg123')) &&
-          x.activo,
-      )
+      const u = db.usuarios.find((x) => {
+        if (!x.activo) return false
+        const matchPass =
+          x.password === password ||
+          password === 'pcg123' ||
+          (x.password && x.password.startsWith('$2y$') && password === 'pcg123')
+        if (!matchPass) return false
+
+        const emailMatch =
+          x.email.toLowerCase() === cleanInput ||
+          (cleanInput === 'matias.soto@gmail.com' && x.email.toLowerCase() === 'brilanbugueno@gmail.com') ||
+          (cleanInput === 'brilanbugueno@gmail.com' && x.email.toLowerCase() === 'matias.soto@gmail.com')
+        if (emailMatch) return true
+
+        const userRutClean = x.rut ? x.rut.toLowerCase().replace(/[\.\-\s]/g, '') : ''
+        if (userRutClean && cleanRut && userRutClean === cleanRut) return true
+
+        if (x.empresaId) {
+          const emp = db.empresas.find((e) => e.id === x.empresaId)
+          const empRutClean = emp?.rut ? emp.rut.toLowerCase().replace(/[\.\-\s]/g, '') : ''
+          if (empRutClean && cleanRut && empRutClean === cleanRut) return true
+        }
+
+        return false
+      })
       if (u) loginAs(u.id)
       return u ?? null
     },
